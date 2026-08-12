@@ -1,0 +1,7 @@
+Flask
+pandas
+numpy
+openpyxl
+scipy
+Werkzeug
+python-decouple

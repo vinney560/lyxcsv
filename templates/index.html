@@ -1,0 +1,3463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Formatter Pro - Enterprise Edition</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a202c;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* ===== TOAST NOTIFICATIONS ===== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 420px;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 16px 20px;
+            border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            animation: slideInRight 0.4s ease;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover {
+            transform: translateX(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+        }
+
+        .toast.success {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border-left: 4px solid #059669;
+        }
+
+        .toast.error {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border-left: 4px solid #dc2626;
+        }
+
+        .toast.info {
+            background: rgba(59, 130, 246, 0.95);
+            color: white;
+            border-left: 4px solid #2563eb;
+        }
+
+        .toast.warning {
+            background: rgba(245, 158, 11, 0.95);
+            color: white;
+            border-left: 4px solid #d97706;
+        }
+
+        .toast-icon {
+            font-size: 1.3rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 0.9rem;
+            opacity: 0.95;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0 4px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            color: white;
+            transform: scale(1.2);
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(40px);
+            }
+        }
+
+        .toast.removing {
+            animation: slideOutRight 0.3s ease forwards;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 20px;
+            max-width: 560px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.2rem;
+            color: #1a202c;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-header h3 i {
+            color: #4a6cf7;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #a0aec0;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: #f7fafc;
+            color: #e53e3e;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* ===== AUTH MODAL ===== */
+        .auth-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .auth-overlay.show {
+            display: flex;
+        }
+
+        .auth-modal {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease;
+        }
+
+        .auth-modal h2 {
+            text-align: center;
+            font-size: 1.5rem;
+            color: #1a202c;
+            margin-bottom: 8px;
+        }
+
+        .auth-modal h2 i {
+            color: #4a6cf7;
+        }
+
+        .auth-modal p {
+            text-align: center;
+            color: #718096;
+            font-size: 0.95rem;
+            margin-bottom: 25px;
+        }
+
+        .auth-modal input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+            background: #f7fafc;
+            color: #1a202c;
+        }
+
+        .auth-modal input:focus {
+            border-color: #4a6cf7;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(74, 108, 247, 0.1);
+            background: white;
+        }
+
+        .auth-modal .btn {
+            width: 100%;
+            justify-content: center;
+            padding: 14px;
+            font-size: 1rem;
+        }
+
+        .auth-error {
+            color: #e53e3e;
+            font-size: 0.9rem;
+            text-align: center;
+            display: none;
+            margin-top: 12px;
+            padding: 10px;
+            background: #fff5f5;
+            border-radius: 8px;
+            border: 1px solid #feb2b2;
+        }
+
+        .auth-error.show {
+            display: block;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1a202c;
+            letter-spacing: -0.5px;
+        }
+
+        .header h1 i {
+            color: #4a6cf7;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1rem;
+            margin-top: 4px;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #fff5f5;
+            color: #e53e3e;
+            border: 1px solid #feb2b2;
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .logout-btn:hover {
+            background: #fed7d7;
+            transform: scale(1.03);
+        }
+
+        .logout-btn.show {
+            display: flex;
+        }
+
+        /* ===== UPLOAD ZONE ===== */
+        .upload-section {
+            position: relative;
+        }
+
+        .upload-zone {
+            border: 2px dashed #d2d6dc;
+            border-radius: 16px;
+            padding: 50px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafbfc;
+            position: relative;
+        }
+
+        .upload-zone.hidden {
+            display: none !important;
+        }
+
+        .upload-zone:hover {
+            border-color: #4a6cf7;
+            background: #f0f4ff;
+        }
+
+        .upload-zone.dragover {
+            border-color: #4a6cf7;
+            background: #ebf0ff;
+            transform: scale(1.01);
+        }
+
+        .upload-zone i {
+            font-size: 3.5rem;
+            color: #4a6cf7;
+            margin-bottom: 16px;
+        }
+
+        .upload-zone h3 {
+            color: #1a202c;
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .upload-zone p {
+            color: #a0aec0;
+            font-size: 0.95rem;
+        }
+
+        .upload-zone input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* ===== FILE INFO ===== */
+        .file-info {
+            display: none;
+            background: #f7fafc;
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-top: 16px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .file-info.show {
+            display: flex;
+        }
+
+        .file-info .file-name {
+            font-weight: 600;
+            color: #1a202c;
+            font-size: 1rem;
+        }
+
+        .file-info .file-size {
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        .new-upload-btn {
+            display: none;
+            margin: 0 auto;
+        }
+
+        .new-upload-btn.show {
+            display: inline-flex;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: #4a6cf7;
+            color: white;
+            box-shadow: 0 2px 8px rgba(74, 108, 247, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: #3b5de7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 108, 247, 0.35);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: #38a169;
+            color: white;
+            box-shadow: 0 2px 8px rgba(56, 161, 105, 0.3);
+        }
+
+        .btn-success:hover {
+            background: #2f855a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(56, 161, 105, 0.35);
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+            box-shadow: 0 2px 8px rgba(229, 62, 62, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: #4a6cf7;
+            border: 2px solid #4a6cf7;
+        }
+
+        .btn-outline:hover {
+            background: #4a6cf7;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+            box-shadow: 0 2px 8px rgba(237, 137, 54, 0.3);
+        }
+
+        .btn-warning:hover {
+            background: #dd6b20;
+            transform: translateY(-2px);
+        }
+
+        .btn-purple {
+            background: #805ad5;
+            color: white;
+            box-shadow: 0 2px 8px rgba(128, 90, 213, 0.3);
+        }
+
+        .btn-purple:hover {
+            background: #6b46c1;
+            transform: translateY(-2px);
+        }
+
+        .btn-info {
+            background: #3182ce;
+            color: white;
+            box-shadow: 0 2px 8px rgba(49, 130, 206, 0.3);
+        }
+
+        .btn-info:hover {
+            background: #2b6cb0;
+            transform: translateY(-2px);
+        }
+
+        .btn-dark {
+            background: #1a202c;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-dark:hover {
+            background: #2d3748;
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.85rem;
+        }
+
+        .btn-lg {
+            padding: 14px 32px;
+            font-size: 1.05rem;
+        }
+
+        .btn.active {
+            background: #38a169;
+            color: white;
+        }
+
+        .btn.active:hover {
+            background: #2f855a;
+        }
+
+        /* ===== BADGES ===== */
+        .type-badge {
+            background: #4a6cf7;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .year-badge {
+            background: #f59e0b;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .email-badge {
+            background: #06b6d4;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .bool-badge {
+            background: #8b5cf6;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .date-badge {
+            background: #10b981;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* ===== COLLAPSIBLE ===== */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .collapsible-header:hover {
+            opacity: 0.8;
+        }
+
+        .collapse-icon {
+            transition: transform 0.3s ease;
+            font-size: 0.9rem;
+            color: #a0aec0;
+        }
+
+        .collapse-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            max-height: 2000px;
+            opacity: 1;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
+        /* ===== TOOLBAR ===== */
+        .toolbar {
+            display: none;
+            margin: 16px 0;
+            padding: 16px 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .toolbar.show {
+            display: block;
+        }
+
+        .toolbar .toolbar-inner {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .toolbar .search-box {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .toolbar .search-box input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background: white;
+            color: #1a202c;
+            min-width: 140px;
+        }
+
+        .toolbar .search-box input:focus {
+            border-color: #4a6cf7;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(74, 108, 247, 0.1);
+        }
+
+        .toolbar .search-box .search-btn {
+            padding: 10px 18px;
+            background: #4a6cf7;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .toolbar .search-box .search-btn:hover {
+            background: #3b5de7;
+        }
+
+        .toolbar .search-options {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .toolbar .search-options label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            color: #4a5568;
+            cursor: pointer;
+        }
+
+        .toolbar .search-options input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #4a6cf7;
+        }
+
+        /* ===== CLEANING SECTION ===== */
+        .cleaning-section {
+            display: none;
+            margin: 12px 0;
+            padding: 16px 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .cleaning-section.show {
+            display: block;
+        }
+
+        .cleaning-section h4 {
+            font-size: 1.05rem;
+            color: #1a202c;
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+
+        .cleaning-section h4 i {
+            color: #4a6cf7;
+        }
+
+        .cleaning-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .column-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 10px 12px;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            margin: 8px 0;
+            align-items: center;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .column-selector .selector-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #4a5568;
+            margin-right: 8px;
+            white-space: nowrap;
+        }
+
+        .column-selector .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .column-selector label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            color: #4a5568;
+            cursor: pointer;
+            padding: 3px 10px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .column-selector label:hover {
+            background: #ebf8ff;
+            border-color: #4a6cf7;
+        }
+
+        .column-selector label input[type="checkbox"] {
+            width: 13px;
+            height: 13px;
+            cursor: pointer;
+            accent-color: #4a6cf7;
+        }
+
+        .column-selector .select-all-label {
+            background: #ebf8ff;
+            border-color: #4a6cf7;
+            font-weight: 600;
+            color: #1a202c;
+        }
+
+        .column-selector .select-all-label:hover {
+            background: #dbeafe;
+        }
+
+        /* ===== ISSUE CARDS ===== */
+        .issue-cards-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .issue-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .issue-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            transform: translateY(-2px);
+        }
+
+        .issue-card .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .issue-card .card-header i {
+            font-size: 1.2rem;
+        }
+
+        .issue-card .card-header h5 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #1a202c;
+            margin: 0;
+        }
+
+        .issue-card .card-header .badge {
+            margin-left: auto;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .issue-card .card-body {
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+
+        .issue-card .card-body .issue-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f4f8;
+            font-size: 0.85rem;
+        }
+
+        .issue-card .card-body .issue-item:last-child {
+            border-bottom: none;
+        }
+
+        .issue-card .card-body .issue-item .col-name {
+            font-weight: 500;
+            color: #1a202c;
+        }
+
+        .issue-card .card-body .issue-item .issue-count {
+            color: #718096;
+        }
+
+        .issue-card .card-body .issue-item .issue-count .highlight {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+
+        .issue-card .card-body .issue-item .issue-count .warning {
+            color: #d69e2e;
+            font-weight: 600;
+        }
+
+        .issue-card .card-body .issue-item .issue-count .info {
+            color: #2b6cb0;
+            font-weight: 600;
+        }
+
+        .issue-card .card-body .issue-item .issue-count .success {
+            color: #38a169;
+            font-weight: 600;
+        }
+
+        .issue-card.clean {
+            border-left: 4px solid #38a169;
+        }
+
+        .issue-card.clean .card-header i {
+            color: #38a169;
+        }
+
+        .issue-card.clean .badge {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .issue-card.issues {
+            border-left: 4px solid #e53e3e;
+        }
+
+        .issue-card.issues .card-header i {
+            color: #e53e3e;
+        }
+
+        .issue-card.issues .badge {
+            background: #fee;
+            color: #dc2626;
+        }
+
+        .issue-card.warning-card {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .issue-card.warning-card .card-header i {
+            color: #f59e0b;
+        }
+
+        .issue-card.warning-card .badge {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .issue-card.info-card {
+            border-left: 4px solid #4a6cf7;
+        }
+
+        .issue-card.info-card .card-header i {
+            color: #4a6cf7;
+        }
+
+        .issue-card.info-card .badge {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* ===== CLEANING REPORT ===== */
+        .cleaning-report {
+            display: none;
+            margin-top: 14px;
+            padding: 16px 20px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+
+        .cleaning-report.show {
+            display: block;
+        }
+
+        .cleaning-report .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #a0aec0;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .cleaning-report .close-btn:hover {
+            background: #f7fafc;
+            color: #e53e3e;
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .report-item {
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: #f7fafc;
+            font-size: 0.9rem;
+        }
+
+        .report-item.success {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+        }
+
+        .report-item.warning {
+            background: #fffbeb;
+            border: 1px solid #f6c23e;
+        }
+
+        .report-item.danger {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+        }
+
+        .report-item.info {
+            background: #ebf8ff;
+            border: 1px solid #90cdf4;
+        }
+
+        .report-item strong {
+            display: block;
+            margin-bottom: 3px;
+            color: #1a202c;
+            font-size: 0.85rem;
+        }
+
+        .report-item .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        /* ===== BULK SECTION ===== */
+        .bulk-section {
+            display: none;
+            margin: 12px 0;
+            padding: 16px 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .bulk-section.show {
+            display: block;
+        }
+
+        .bulk-section h4 {
+            font-size: 1.05rem;
+            color: #1a202c;
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+
+        .bulk-section h4 i {
+            color: #4a6cf7;
+        }
+
+        .bulk-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .bulk-controls select,
+        .bulk-controls input {
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            color: #1a202c;
+            font-size: 0.9rem;
+            min-width: 130px;
+            transition: all 0.3s ease;
+        }
+
+        .bulk-controls select:focus,
+        .bulk-controls input:focus {
+            border-color: #4a6cf7;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(74, 108, 247, 0.1);
+        }
+
+        .bulk-controls label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            color: #4a5568;
+            cursor: pointer;
+        }
+
+        .bulk-controls label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #4a6cf7;
+            min-width: auto;
+        }
+
+        .bulk-results {
+            display: none;
+            margin-top: 14px;
+            padding: 16px 20px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            max-height: 350px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .bulk-results.show {
+            display: block;
+        }
+
+        .bulk-results .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #a0aec0;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .bulk-results .close-btn:hover {
+            background: #f7fafc;
+            color: #e53e3e;
+        }
+
+        .bulk-result-item {
+            padding: 10px 14px;
+            margin-bottom: 6px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #4a6cf7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .bulk-result-item .highlight {
+            background: #fef3c7;
+            color: #1a202c;
+            padding: 0 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .bulk-result-item .action-buttons {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .bulk-result-item .action-buttons .btn {
+            padding: 4px 12px;
+            font-size: 0.78rem;
+        }
+
+        /* ===== STATS ===== */
+        .stats-bar {
+            display: none;
+            margin: 16px 0 20px 0;
+            padding: 16px 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stats-bar.show {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 14px 16px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-item .label {
+            font-size: 0.75rem;
+            color: #a0aec0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .stat-item .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin-top: 2px;
+        }
+
+        .stat-item .value.green {
+            color: #38a169;
+        }
+
+        /* ===== COLUMN INFO ===== */
+        .column-info {
+            display: none;
+            margin: 14px 0;
+            padding: 16px 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .column-info.show {
+            display: block;
+        }
+
+        .column-info h4 {
+            font-size: 0.95rem;
+            margin-bottom: 0;
+            color: #1a202c;
+            font-weight: 600;
+        }
+
+        .column-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .column-tag {
+            background: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid #e2e8f0;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #1a202c;
+        }
+
+        /* ===== EDIT CONTROLS ===== */
+        .edit-controls {
+            display: none;
+            margin: 10px 0;
+            padding: 16px 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .edit-controls.show {
+            display: block;
+        }
+
+        .edit-controls h4 {
+            font-size: 0.95rem;
+            color: #1a202c;
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+
+        .edit-controls-inner {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .edit-controls .info-text {
+            color: #718096;
+            font-size: 0.9rem;
+            margin-left: 8px;
+        }
+
+        .edit-controls .info-text i {
+            color: #4a6cf7;
+        }
+
+        /* ===== TABLE ===== */
+        .table-wrapper {
+            display: none;
+            overflow-x: auto;
+            margin: 16px 0;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+        }
+
+        .table-wrapper.show {
+            display: block;
+        }
+
+        .table-wrapper .table-container {
+            max-height: 550px;
+            overflow: auto;
+        }
+
+        .formatted-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .formatted-table th {
+            background: #f7fafc;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #1a202c;
+            border-bottom: 2px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            min-width: 100px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .formatted-table th:last-child {
+            border-right: none;
+        }
+
+        .formatted-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #edf2f7;
+            border-right: 1px solid #edf2f7;
+            color: #2d3748;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.9rem;
+        }
+
+        .formatted-table td:last-child {
+            border-right: none;
+        }
+
+        .formatted-table td[contenteditable="true"] {
+            cursor: text;
+            transition: background 0.2s ease;
+        }
+
+        .formatted-table td[contenteditable="true"]:hover {
+            background: #ebf8ff;
+        }
+
+        .formatted-table td[contenteditable="true"]:focus {
+            background: #e0edff;
+            outline: 2px solid #4a6cf7;
+            outline-offset: -2px;
+            border-radius: 4px;
+        }
+
+        .formatted-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .formatted-table tr:nth-child(even) {
+            background: #fafcfd;
+        }
+
+        .formatted-table tr:nth-child(even):hover {
+            background: #f0f4f8;
+        }
+
+        .formatted-table .delete-btn {
+            background: #fff5f5;
+            color: #e53e3e;
+            border: 1px solid #feb2b2;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .formatted-table .delete-btn:hover {
+            background: #fed7d7;
+            transform: scale(1.05);
+        }
+
+        /* ===== DOWNLOAD SECTION ===== */
+        .download-section {
+            display: none;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .download-section.show {
+            display: flex;
+        }
+
+        /* ===== LOADER ===== */
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loader.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #4a6cf7;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loader p {
+            color: #718096;
+            margin-top: 12px;
+            font-size: 0.95rem;
+        }
+
+        /* ===== CLEAN LOG ===== */
+        .clean-log {
+            display: none;
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: #f0fff4;
+            border-radius: 10px;
+            border-left: 4px solid #38a169;
+            font-size: 0.9rem;
+        }
+
+        .clean-log.show {
+            display: block;
+        }
+
+        .clean-log strong {
+            color: #276749;
+        }
+
+        .clean-log ul {
+            margin: 6px 0 0 20px;
+            color: #2d3748;
+        }
+
+        .clean-log ul li {
+            margin-bottom: 3px;
+        }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f0f4f8;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 992px) {
+            .card {
+                padding: 20px 24px;
+            }
+
+            .header h1 {
+                font-size: 1.7rem;
+            }
+
+            .issue-cards-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+
+            .card {
+                padding: 16px 18px;
+                border-radius: 12px;
+            }
+
+            .header {
+                margin-bottom: 18px;
+            }
+
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .header p {
+                font-size: 0.9rem;
+            }
+
+            .logout-btn {
+                position: relative;
+                margin-top: 10px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                max-width: calc(100% - 20px);
+            }
+
+            .toast {
+                padding: 12px 16px;
+                font-size: 0.9rem;
+            }
+
+            .modal {
+                max-width: 100%;
+                margin: 10px;
+            }
+
+            .upload-zone {
+                padding: 35px 16px;
+            }
+
+            .upload-zone i {
+                font-size: 2.8rem;
+            }
+
+            .upload-zone h3 {
+                font-size: 1rem;
+            }
+
+            .upload-zone p {
+                font-size: 0.85rem;
+            }
+
+            .file-info {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .file-info .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .toolbar .toolbar-inner {
+                flex-direction: column;
+            }
+
+            .toolbar .search-box {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .toolbar .search-box input {
+                min-width: 100px;
+                font-size: 0.9rem;
+            }
+
+            .toolbar .search-options {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .stat-item {
+                padding: 10px 12px;
+            }
+
+            .stat-item .value {
+                font-size: 1.1rem;
+            }
+
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cleaning-actions {
+                flex-direction: column;
+            }
+
+            .cleaning-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .bulk-controls {
+                flex-direction: column;
+            }
+
+            .bulk-controls select,
+            .bulk-controls input,
+            .bulk-controls .btn,
+            .bulk-controls label {
+                width: 100%;
+            }
+
+            .bulk-controls label {
+                justify-content: flex-start;
+            }
+
+            .edit-controls-inner {
+                flex-direction: column;
+            }
+
+            .edit-controls-inner .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .edit-controls .info-text {
+                margin-left: 0;
+                text-align: center;
+                width: 100%;
+            }
+
+            .download-section {
+                flex-direction: column;
+            }
+
+            .download-section .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .formatted-table {
+                font-size: 0.8rem;
+            }
+
+            .formatted-table th,
+            .formatted-table td {
+                padding: 8px 10px;
+            }
+
+            .formatted-table td {
+                max-width: 120px;
+                font-size: 0.8rem;
+            }
+
+            .formatted-table th {
+                font-size: 0.75rem;
+            }
+
+            .table-wrapper .table-container {
+                max-height: 350px;
+            }
+
+            .column-tag {
+                font-size: 0.75rem;
+                padding: 4px 10px;
+            }
+
+            .bulk-result-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .bulk-result-item .action-buttons {
+                width: 100%;
+            }
+
+            .bulk-result-item .action-buttons .btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .cleaning-report .close-btn,
+            .bulk-results .close-btn {
+                top: 8px;
+                right: 12px;
+                font-size: 1rem;
+            }
+
+            .cleaning-report,
+            .bulk-results {
+                padding: 12px 14px;
+            }
+
+            .auth-modal {
+                padding: 28px 24px;
+            }
+
+            .btn {
+                font-size: 0.9rem;
+                padding: 10px 18px;
+            }
+
+            .btn-lg {
+                padding: 12px 24px;
+                font-size: 0.95rem;
+            }
+
+            .column-selector {
+                max-height: 100px;
+                overflow-y: auto;
+                padding: 8px 10px;
+            }
+
+            .column-selector label {
+                font-size: 0.75rem;
+                padding: 2px 8px;
+            }
+
+            .issue-cards-container {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-body {
+                padding: 16px;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .upload-zone {
+                padding: 25px 12px;
+            }
+
+            .upload-zone i {
+                font-size: 2.2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .formatted-table td {
+                max-width: 80px;
+                font-size: 0.75rem;
+                padding: 6px 8px;
+            }
+
+            .formatted-table th {
+                font-size: 0.7rem;
+                padding: 6px 8px;
+            }
+
+            .btn {
+                font-size: 0.85rem;
+                padding: 8px 14px;
+            }
+
+            .column-selector label {
+                font-size: 0.7rem;
+                padding: 2px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ===== TOAST CONTAINER ===== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ===== AUTH MODAL ===== -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-modal">
+            <h2><i class="fas fa-lock"></i> Authentication Required</h2>
+            <p>Please enter the password to access the data formatter</p>
+            <input type="password" id="passwordInput" placeholder="Enter password..." onkeydown="if(event.key==='Enter') authenticate()">
+            <button class="btn btn-primary" onclick="authenticate()">
+                <i class="fas fa-unlock"></i> Unlock
+            </button>
+            <div class="auth-error" id="authError">Invalid password. Please try again.</div>
+        </div>
+    </div>
+
+    <!-- ===== DUPLICATE DETECTION MODAL ===== -->
+    <div class="modal-overlay" id="duplicateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-copy"></i> Duplicate Rows Detected</h3>
+                <button class="modal-close" onclick="closeDuplicateModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="duplicateModalBody">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeDuplicateModal()">Keep Duplicates</button>
+                <button class="btn btn-danger" onclick="removeDuplicates()">
+                    <i class="fas fa-trash"></i> Remove Duplicates
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== YEAR FORMAT MODAL ===== -->
+    <div class="modal-overlay" id="yearModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-calendar"></i> Year Column Detected</h3>
+                <button class="modal-close" onclick="closeYearModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="yearModalBody">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeYearModal()">Keep as Numbers</button>
+                <button class="btn btn-primary" onclick="formatYears()">
+                    <i class="fas fa-calendar-alt"></i> Format as Years
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- ===== MAIN CARD ===== -->
+        <div class="card">
+            <!-- Header -->
+            <div class="header">
+                <h1><i class="fas fa-table"></i> Data Formatter Pro</h1>
+                <p>Upload, format, clean, search, bulk update, and edit your data with ease</p>
+                <button class="logout-btn" id="logoutBtn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="upload-section">
+                <div class="upload-zone" id="uploadZone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h3>Drag & drop your file here</h3>
+                    <p>or click to browse (CSV, XLS, XLSX) — Max 100MB</p>
+                    <input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
+                </div>
+                <div style="text-align: center;">
+                    <button class="btn btn-dark btn-lg new-upload-btn" id="newUploadBtn" onclick="showUploadZone()">
+                        <i class="fas fa-plus"></i> Upload New File
+                    </button>
+                </div>
+            </div>
+
+            <!-- File Info -->
+            <div class="file-info" id="fileInfo">
+                <div>
+                    <span class="file-name" id="fileName">data.csv</span>
+                    <span class="file-size" id="fileSize">(2.4 MB)</span>
+                </div>
+                <button class="btn btn-primary" id="processBtn">
+                    <i class="fas fa-magic"></i> Format Data
+                </button>
+            </div>
+
+            <!-- Loader -->
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p>Processing your data...</p>
+            </div>
+
+            <!-- ===== TOOLBAR (Search) ===== -->
+            <div class="toolbar" id="toolbar">
+                <div class="collapsible-header" onclick="toggleSection('toolbarContent', 'toolbarIcon')" style="margin-bottom: 8px;">
+                    <h4 style="margin: 0;"><i class="fas fa-search"></i> Search</h4>
+                    <i class="fas fa-chevron-down collapse-icon" id="toolbarIcon"></i>
+                </div>
+                <div class="collapsible-content" id="toolbarContent">
+                    <div class="toolbar-inner">
+                        <div class="search-box">
+                            <input type="text" id="searchInput" placeholder="Search across all columns..." onkeydown="if(event.key==='Enter') searchData()">
+                            <button class="search-btn" onclick="searchData()">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="clearSearch()">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                        <div class="search-options">
+                            <label>
+                                <input type="checkbox" id="caseSensitive"> Case Sensitive
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== CLEANING SECTION ===== -->
+            <div class="cleaning-section" id="cleaningSection">
+                <div class="collapsible-header" onclick="toggleSection('cleaningContent', 'cleaningIcon')">
+                    <h4><i class="fas fa-broom"></i> Data Cleaning</h4>
+                    <i class="fas fa-chevron-down collapse-icon" id="cleaningIcon"></i>
+                </div>
+                <div class="collapsible-content" id="cleaningContent" style="margin-top: 12px;">
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 0.9rem; color: #4a5568; font-weight: 500; display: block; margin-bottom: 6px;">
+                            <i class="fas fa-columns"></i> Select columns to clean:
+                        </label>
+                        <div class="column-selector" id="cleaningColumnSelector">
+                            <label class="select-all-label">
+                                <input type="checkbox" id="selectAllColumns" checked onchange="toggleAllColumns()"> Select All
+                            </label>
+                            <div class="checkbox-group" id="columnCheckboxes"></div>
+                        </div>
+                    </div>
+
+                    <div class="cleaning-actions">
+                        <button class="btn btn-info" onclick="showCleaningReport()">
+                            <i class="fas fa-chart-bar"></i> Show Report
+                        </button>
+                        <button class="btn btn-purple" onclick="cleanData()">
+                            <i class="fas fa-magic"></i> Auto Clean Selected
+                        </button>
+                        <button class="btn btn-outline" onclick="undoCleaning()" id="undoBtn" style="display: none;">
+                            <i class="fas fa-undo"></i> Undo Clean
+                        </button>
+                        <button class="btn btn-warning" onclick="checkDuplicates()">
+                            <i class="fas fa-copy"></i> Check Duplicates
+                        </button>
+                        <button class="btn btn-info" onclick="formatEmails()" id="emailBtn" style="display: none;">
+                            <i class="fas fa-envelope"></i> Format Emails
+                        </button>
+                    </div>
+                    <div class="cleaning-report" id="cleaningReport">
+                        <button class="close-btn" onclick="document.getElementById('cleaningReport').classList.remove('show')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div id="reportContent"></div>
+                    </div>
+                    <div class="clean-log" id="cleanLog">
+                        <strong><i class="fas fa-check-circle"></i> Cleaning Applied:</strong>
+                        <ul id="cleanLogList"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== BULK UPDATE SECTION ===== -->
+            <div class="bulk-section" id="bulkSection">
+                <div class="collapsible-header" onclick="toggleSection('bulkContent', 'bulkIcon')">
+                    <h4><i class="fas fa-exchange-alt"></i> Bulk Find & Replace</h4>
+                    <i class="fas fa-chevron-down collapse-icon" id="bulkIcon"></i>
+                </div>
+                <div class="collapsible-content" id="bulkContent" style="margin-top: 12px;">
+                    <div class="bulk-controls">
+                        <select id="bulkColumn">
+                            <option value="">Select Column...</option>
+                        </select>
+                        <input type="text" id="bulkSearchTerm" placeholder="Find...">
+                        <input type="text" id="bulkReplaceTerm" placeholder="Replace with...">
+                        <label>
+                            <input type="checkbox" id="bulkCaseSensitive"> Case Sensitive
+                        </label>
+                        <button class="btn btn-info" onclick="bulkFind()">
+                            <i class="fas fa-search"></i> Find
+                        </button>
+                        <button class="btn btn-warning" onclick="bulkReplaceAll()">
+                            <i class="fas fa-exchange-alt"></i> Replace All
+                        </button>
+                    </div>
+                    <div class="bulk-results" id="bulkResults">
+                        <button class="close-btn" onclick="document.getElementById('bulkResults').classList.remove('show')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div id="bulkResultsContent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== EDIT CONTROLS ===== -->
+            <div class="edit-controls" id="editControls">
+                <div class="collapsible-header" onclick="toggleSection('editContent', 'editIcon')" style="margin-bottom: 8px;">
+                    <h4 style="margin: 0;"><i class="fas fa-edit"></i> Edit Controls</h4>
+                    <i class="fas fa-chevron-down collapse-icon" id="editIcon"></i>
+                </div>
+                <div class="collapsible-content" id="editContent">
+                    <div class="edit-controls-inner">
+                        <button class="btn btn-success" onclick="addRow()">
+                            <i class="fas fa-plus"></i> Add Row
+                        </button>
+                        <button class="btn btn-warning" id="editToggleBtn" onclick="toggleEditMode()">
+                            <i class="fas fa-edit"></i> <span class="btn-text">Edit Mode</span>
+                        </button>
+                        <button class="btn btn-danger" onclick="resetData()">
+                            <i class="fas fa-undo"></i> Reset to Original
+                        </button>
+                        <span class="info-text">
+                            <i class="fas fa-info-circle"></i> Click cells to edit
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== STATS ===== -->
+            <div class="stats-bar" id="statsBar">
+                <div class="collapsible-header" onclick="toggleSection('statsContent', 'statsIcon')" style="margin-bottom: 10px;">
+                    <h4 style="margin: 0;"><i class="fas fa-chart-bar"></i> Statistics</h4>
+                    <i class="fas fa-chevron-down collapse-icon" id="statsIcon"></i>
+                </div>
+                <div class="collapsible-content" id="statsContent">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="label">Rows</div>
+                            <div class="value" id="rowCount">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">Columns</div>
+                            <div class="value" id="colCount">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">Status</div>
+                            <div class="value green" id="statusText">Formatted</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== COLUMN INFO ===== -->
+            <div class="column-info" id="columnInfo">
+                <div class="collapsible-header" onclick="toggleSection('columnInfoContent', 'columnInfoIcon')">
+                    <h4><i class="fas fa-info-circle"></i> Column Information</h4>
+                    <i class="fas fa-chevron-down collapse-icon" id="columnInfoIcon"></i>
+                </div>
+                <div class="collapsible-content" id="columnInfoContent" style="margin-top: 10px;">
+                    <div class="column-tags" id="columnTags"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TABLE CARD ===== -->
+        <div class="card">
+            <div class="table-wrapper" id="tableWrapper">
+                <div class="table-container" id="tableContainer"></div>
+            </div>
+
+            <!-- Download Buttons -->
+            <div class="download-section" id="downloadSection">
+                <button class="btn btn-success" onclick="downloadFile('csv')">
+                    <i class="fas fa-file-csv"></i> Download CSV
+                </button>
+                <button class="btn btn-success" onclick="downloadFile('excel')">
+                    <i class="fas fa-file-excel"></i> Download Excel
+                </button>
+                <button class="btn btn-outline" onclick="resetAll()">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== TOAST SYSTEM =====
+        function showToast(message, type = 'info', title = '') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+            
+            const titles = {
+                success: 'Success',
+                error: 'Error',
+                warning: 'Warning',
+                info: 'Information'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon"><i class="${icons[type] || icons.info}"></i></div>
+                <div class="toast-content">
+                    <div class="toast-title">${title || titles[type] || 'Information'}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.closest('.toast').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.classList.add('removing');
+                    setTimeout(() => {
+                        if (toast.parentNode) toast.remove();
+                    }, 300);
+                }
+            }, 5000);
+            
+            toast.addEventListener('click', () => {
+                toast.classList.add('removing');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.remove();
+                }, 300);
+            });
+        }
+
+        // ===== MODAL FUNCTIONS =====
+        function openDuplicateModal(html) {
+            document.getElementById('duplicateModalBody').innerHTML = html;
+            document.getElementById('duplicateModal').classList.add('show');
+        }
+
+        function closeDuplicateModal() {
+            document.getElementById('duplicateModal').classList.remove('show');
+        }
+
+        function openYearModal(html) {
+            document.getElementById('yearModalBody').innerHTML = html;
+            document.getElementById('yearModal').classList.add('show');
+        }
+
+        function closeYearModal() {
+            document.getElementById('yearModal').classList.remove('show');
+        }
+
+        // ===== STATE =====
+        let currentFile = null;
+        let editMode = false;
+        let isAuthenticated = false;
+        let currentColumns = [];
+        let detectedYearColumns = [];
+
+        // ===== COLLAPSIBLE =====
+        function toggleSection(contentId, iconId) {
+            const content = document.getElementById(contentId);
+            const icon = document.getElementById(iconId);
+            
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                icon.classList.remove('collapsed');
+                localStorage.setItem(contentId + '_collapsed', 'false');
+            } else {
+                content.classList.add('collapsed');
+                icon.classList.add('collapsed');
+                localStorage.setItem(contentId + '_collapsed', 'true');
+            }
+        }
+
+        function loadCollapseStates() {
+            const sections = ['toolbarContent', 'cleaningContent', 'bulkContent', 'editContent', 'statsContent', 'columnInfoContent'];
+            const icons = ['toolbarIcon', 'cleaningIcon', 'bulkIcon', 'editIcon', 'statsIcon', 'columnInfoIcon'];
+            
+            sections.forEach((sectionId, index) => {
+                const isCollapsed = localStorage.getItem(sectionId + '_collapsed') === 'true';
+                if (isCollapsed) {
+                    document.getElementById(sectionId).classList.add('collapsed');
+                    document.getElementById(icons[index]).classList.add('collapsed');
+                }
+            });
+        }
+
+        // ===== COLUMN SELECTOR =====
+        function updateColumnSelector(columns) {
+            const container = document.getElementById('columnCheckboxes');
+            container.innerHTML = '';
+            columns.forEach(col => {
+                const label = document.createElement('label');
+                label.innerHTML = `
+                    <input type="checkbox" class="column-checkbox" value="${col}" checked>
+                    ${col}
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function getSelectedColumns() {
+            const checkboxes = document.querySelectorAll('.column-checkbox:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function toggleAllColumns() {
+            const checked = document.getElementById('selectAllColumns').checked;
+            document.querySelectorAll('.column-checkbox').forEach(cb => cb.checked = checked);
+        }
+
+        // ===== AUTH =====
+        function checkAuth() {
+            document.getElementById('authOverlay').classList.add('show');
+        }
+
+        async function authenticate() {
+            const password = document.getElementById('passwordInput').value;
+            const authError = document.getElementById('authError');
+            
+            if (!password) {
+                authError.textContent = 'Please enter a password';
+                authError.classList.add('show');
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    isAuthenticated = true;
+                    document.getElementById('authOverlay').classList.remove('show');
+                    document.getElementById('logoutBtn').classList.add('show');
+                    authError.classList.remove('show');
+                    document.getElementById('passwordInput').value = '';
+                    showToast('Authentication successful!', 'success');
+                } else {
+                    authError.textContent = data.message || 'Invalid password';
+                    authError.classList.add('show');
+                    document.getElementById('passwordInput').value = '';
+                    showToast(data.message || 'Invalid password', 'error');
+                }
+            } catch (error) {
+                authError.textContent = 'Authentication failed. Please try again.';
+                authError.classList.add('show');
+                showToast('Authentication failed. Please try again.', 'error');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/logout', { method: 'POST' });
+                isAuthenticated = false;
+                document.getElementById('logoutBtn').classList.remove('show');
+                document.getElementById('authOverlay').classList.add('show');
+                resetAll();
+                showToast('Logged out successfully', 'info');
+            } catch (error) {
+                console.error('Logout failed:', error);
+                showToast('Logout failed. Please try again.', 'error');
+            }
+        }
+
+        // ===== UPLOAD =====
+        function showUploadZone() {
+            document.getElementById('uploadZone').classList.remove('hidden');
+            document.getElementById('newUploadBtn').classList.remove('show');
+            document.getElementById('fileInfo').classList.remove('show');
+            currentFile = null;
+            hideResults();
+        }
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const processBtn = document.getElementById('processBtn');
+        const loader = document.getElementById('loader');
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            
+            if (!['csv', 'xls', 'xlsx'].includes(ext)) {
+                showToast('Please upload a CSV or Excel file (XLS, XLSX)', 'error');
+                return;
+            }
+
+            if (file.size > 100 * 1024 * 1024) {
+                showToast('File is too large. Maximum size is 100MB.', 'error');
+                return;
+            }
+
+            currentFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = `(${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            fileInfo.classList.add('show');
+            hideResults();
+            showToast(`File "${file.name}" loaded successfully! Click "Format Data" to proceed.`, 'success');
+        }
+
+        processBtn.addEventListener('click', processFile);
+
+        // ===== PROCESS FILE =====
+        async function processFile() {
+            if (!currentFile) return;
+
+            const formData = new FormData();
+            formData.append('file', currentFile);
+
+            processBtn.disabled = true;
+            loader.classList.add('show');
+            hideResults();
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+
+                document.getElementById('tableContainer').innerHTML = data.table_html;
+                document.getElementById('rowCount').textContent = data.rows;
+                document.getElementById('colCount').textContent = data.cols;
+                
+                currentColumns = data.columns.map(c => c.name);
+                updateBulkColumns(currentColumns);
+                updateColumnSelector(currentColumns);
+                
+                const columnTags = document.getElementById('columnTags');
+                columnTags.innerHTML = '';
+                data.columns.forEach(col => {
+                    const tag = document.createElement('span');
+                    tag.className = 'column-tag';
+                    
+                    let badge = `<span class="type-badge">${col.type}</span>`;
+                    
+                    // Check for email columns
+                    if (col.name.toLowerCase().includes('email') || col.name.toLowerCase().includes('mail')) {
+                        badge += ` <span class="email-badge">✉️ Email</span>`;
+                    }
+                    // Check for year columns
+                    if (col.name.toLowerCase().includes('year') || col.name.toLowerCase().includes('date')) {
+                        badge += ` <span class="year-badge">📅 Year</span>`;
+                    }
+                    // Check for boolean columns
+                    if (col.type === 'Boolean') {
+                        badge += ` <span class="bool-badge">🔘 Boolean</span>`;
+                    }
+                    
+                    tag.innerHTML = `
+                        <span>${col.name}</span>
+                        ${badge}
+                        <span style="color: #a0aec0; font-size: 0.7rem;">(${col.non_null} values)</span>
+                    `;
+                    columnTags.appendChild(tag);
+                });
+
+                document.getElementById('uploadZone').classList.add('hidden');
+                document.getElementById('newUploadBtn').classList.add('show');
+                
+                document.getElementById('statsBar').classList.add('show');
+                document.getElementById('columnInfo').classList.add('show');
+                document.getElementById('tableWrapper').classList.add('show');
+                document.getElementById('downloadSection').classList.add('show');
+                document.getElementById('toolbar').classList.add('show');
+                document.getElementById('editControls').classList.add('show');
+                document.getElementById('cleaningSection').classList.add('show');
+                document.getElementById('bulkSection').classList.add('show');
+                document.getElementById('undoBtn').style.display = 'none';
+                document.getElementById('cleanLog').classList.remove('show');
+                document.getElementById('bulkResults').classList.remove('show');
+                document.getElementById('cleaningReport').classList.remove('show');
+                
+                document.getElementById('statsContent').classList.remove('collapsed');
+                document.getElementById('statsIcon').classList.remove('collapsed');
+                document.getElementById('columnInfoContent').classList.remove('collapsed');
+                document.getElementById('columnInfoIcon').classList.remove('collapsed');
+                
+                const editBtn = document.getElementById('editToggleBtn');
+                editBtn.className = 'btn btn-warning';
+                editBtn.innerHTML = '<i class="fas fa-edit"></i> <span class="btn-text">Edit Mode</span>';
+                editMode = false;
+                
+                // Check for email columns and show the email button
+                const emailColumns = data.columns.filter(col => 
+                    (col.type === 'Text' || col.type === 'Boolean') && 
+                    (col.name.toLowerCase().includes('email') || col.name.toLowerCase().includes('mail'))
+                );
+                if (emailColumns.length > 0) {
+                    document.getElementById('emailBtn').style.display = 'inline-flex';
+                }
+                
+                showToast(`Data formatted successfully! ${data.rows} rows, ${data.cols} columns loaded.`, 'success');
+                
+                // Check for year columns and duplicates
+                await checkForYearColumns();
+                await checkForDuplicatesAuto();
+                
+            } catch (error) {
+                showToast('An error occurred while processing the file. Please try again.', 'error');
+            } finally {
+                processBtn.disabled = false;
+                loader.classList.remove('show');
+            }
+        }
+
+        function updateBulkColumns(columns) {
+            const select = document.getElementById('bulkColumn');
+            select.innerHTML = '<option value="">Select Column...</option>';
+            columns.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col;
+                option.textContent = col;
+                select.appendChild(option);
+            });
+        }
+
+        // ===== EMAIL FORMATTER =====
+        async function formatEmails() {
+            const selectedColumns = getSelectedColumns();
+            
+            if (selectedColumns.length === 0) {
+                showToast('Please select at least one column to format emails.', 'warning');
+                return;
+            }
+            
+            if (!confirm(`Format emails in ${selectedColumns.length} selected column(s)?`)) return;
+            
+            try {
+                const response = await fetch('/clean-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        options: {
+                            clean_numeric_strings: false,
+                            clean_weird_characters: false,
+                            clean_spaces: false,
+                            remove_duplicates: false,
+                            remove_empty_columns: false,
+                            fix_dates: false,
+                            format_emails: true
+                        },
+                        columns: selectedColumns
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                document.getElementById('tableContainer').innerHTML = data.table_html;
+                document.getElementById('rowCount').textContent = data.rows;
+                document.getElementById('undoBtn').style.display = 'inline-flex';
+                
+                const formatted = data.clean_log.emails_formatted || 0;
+                showToast(`Formatted ${formatted} email(s) successfully!`, 'success');
+                
+            } catch (error) {
+                showToast('Failed to format emails: ' + error.message, 'error');
+            }
+        }
+
+        // ===== CHECK FOR YEAR COLUMNS =====
+        async function checkForYearColumns() {
+            try {
+                const yearColumns = currentColumns.filter(col => 
+                    col.toLowerCase().includes('year') || 
+                    col.toLowerCase().includes('date')
+                );
+                
+                if (yearColumns.length > 0) {
+                    detectedYearColumns = yearColumns;
+                    let html = `<p>We detected the following columns that appear to contain year values:</p>
+                        <ul style="margin: 12px 0; padding-left: 20px;">`;
+                    yearColumns.forEach(col => {
+                        html += `<li><strong>${col}</strong> — contains values like 2009, 2015, etc.</li>`;
+                    });
+                    html += `</ul>
+                        <p style="color: #718096; font-size: 0.9rem;">Would you like to format these as proper years (without commas) or keep them as regular numbers?</p>`;
+                    openYearModal(html);
+                }
+            } catch (error) {
+                console.log('Year detection:', error);
+            }
+        }
+
+        async function formatYears() {
+            closeYearModal();
+            showToast('Formatting years...', 'info');
+            
+            try {
+                await processFile();
+                showToast('Years formatted successfully!', 'success');
+            } catch (error) {
+                showToast('Failed to format years.', 'error');
+            }
+        }
+
+        // ===== CHECK FOR DUPLICATES =====
+        async function checkForDuplicatesAuto() {
+            try {
+                const response = await fetch('/detect-duplicates', {
+                    method: 'GET'
+                });
+                
+                const data = await response.json();
+                if (data.success && data.duplicate_count > 0) {
+                    let html = `<p>We found <strong>${data.duplicate_count}</strong> duplicate row(s) in your data:</p>
+                        <div style="max-height: 200px; overflow-y: auto; margin: 12px 0; background: #f7fafc; border-radius: 8px; padding: 10px;">`;
+                    
+                    data.duplicate_rows.slice(0, 5).forEach((row, idx) => {
+                        html += `<div style="padding: 4px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem;">`;
+                        Object.keys(row).slice(0, 3).forEach(key => {
+                            html += `<span style="color: #4a5568;"><strong>${key}:</strong> ${row[key]}</span> `;
+                        });
+                        html += `</div>`;
+                    });
+                    
+                    if (data.duplicate_count > 5) {
+                        html += `<div style="padding: 6px 0; color: #a0aec0; font-size: 0.85rem;">... and ${data.duplicate_count - 5} more duplicates</div>`;
+                    }
+                    
+                    html += `</div>
+                        <p style="color: #718096; font-size: 0.9rem;">Would you like to remove the duplicate rows?</p>`;
+                    
+                    openDuplicateModal(html);
+                }
+            } catch (error) {
+                console.log('Duplicate detection:', error);
+            }
+        }
+
+        async function checkDuplicates() {
+            try {
+                const response = await fetch('/detect-duplicates', {
+                    method: 'GET'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    if (data.duplicate_count === 0) {
+                        showToast('No duplicate rows found!', 'success');
+                        return;
+                    }
+                    
+                    let html = `<p>Found <strong>${data.duplicate_count}</strong> duplicate row(s) in your data:</p>
+                        <div style="max-height: 200px; overflow-y: auto; margin: 12px 0; background: #f7fafc; border-radius: 8px; padding: 10px;">`;
+                    
+                    data.duplicate_rows.slice(0, 10).forEach((row, idx) => {
+                        html += `<div style="padding: 4px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem;">`;
+                        Object.keys(row).slice(0, 3).forEach(key => {
+                            html += `<span style="color: #4a5568;"><strong>${key}:</strong> ${row[key]}</span> `;
+                        });
+                        html += `</div>`;
+                    });
+                    
+                    if (data.duplicate_count > 10) {
+                        html += `<div style="padding: 6px 0; color: #a0aec0; font-size: 0.85rem;">... and ${data.duplicate_count - 10} more duplicates</div>`;
+                    }
+                    
+                    html += `</div>
+                        <p style="color: #718096; font-size: 0.9rem;">Would you like to remove the duplicate rows?</p>`;
+                    
+                    openDuplicateModal(html);
+                }
+            } catch (error) {
+                showToast('Failed to check duplicates: ' + error.message, 'error');
+            }
+        }
+
+        async function removeDuplicates() {
+            closeDuplicateModal();
+            showToast('Removing duplicates...', 'info');
+            
+            try {
+                const allColumns = currentColumns;
+                const response = await fetch('/clean-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        options: {
+                            clean_numeric_strings: false,
+                            clean_weird_characters: false,
+                            clean_spaces: false,
+                            remove_duplicates: true,
+                            remove_empty_columns: false,
+                            fix_dates: false
+                        },
+                        columns: allColumns
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                document.getElementById('tableContainer').innerHTML = data.table_html;
+                document.getElementById('rowCount').textContent = data.rows;
+                document.getElementById('undoBtn').style.display = 'inline-flex';
+                
+                const removed = data.clean_log.removed_duplicates || 0;
+                showToast(`Removed ${removed} duplicate row(s) successfully!`, 'success');
+                
+            } catch (error) {
+                showToast('Failed to remove duplicates: ' + error.message, 'error');
+            }
+        }
+
+        // ===== SEARCH =====
+        async function searchData() {
+            const searchTerm = document.getElementById('searchInput').value;
+            const caseSensitive = document.getElementById('caseSensitive').checked;
+
+            if (!searchTerm || searchTerm.trim() === '') {
+                await processFile();
+                return;
+            }
+
+            try {
+                const response = await fetch('/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        search: searchTerm,
+                        case_sensitive: caseSensitive
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+
+                document.getElementById('tableContainer').innerHTML = data.table_html;
+                document.getElementById('rowCount').textContent = data.rows;
+                
+                if (data.rows > 0) {
+                    showToast(`Found ${data.rows} results for "${searchTerm}"`, 'success');
+                } else {
+                    showToast(`No results found for "${searchTerm}"`, 'warning');
+                }
+            } catch (error) {
+                showToast('Search failed. Please try again.', 'error');
+            }
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            if (currentFile) {
+                processFile();
+            }
+        }
+
+        // ===== CLEANING =====
+        async function showCleaningReport() {
+            const selectedColumns = getSelectedColumns();
+            
+            if (selectedColumns.length === 0) {
+                showToast('Please select at least one column to analyze.', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/cleaning-report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ columns: selectedColumns })
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                const report = data.report;
+                let html = '<h5 style="color: #1a202c; font-size: 1rem; margin-bottom: 10px;">📊 Data Quality Report</h5>';
+                
+                html += '<div class="report-grid">';
+                html += `<div class="report-item info">
+                    <strong>Total Rows</strong>
+                    <div class="value">${report.total_rows}</div>
+                </div>`;
+                html += `<div class="report-item info">
+                    <strong>Columns Analyzed</strong>
+                    <div class="value">${report.total_columns}</div>
+                </div>`;
+                html += `<div class="report-item ${report.duplicate_rows > 0 ? 'warning' : 'success'}">
+                    <strong>Duplicate Rows</strong>
+                    <div class="value">${report.duplicate_rows > 0 ? report.duplicate_rows : 'None'}</div>
+                </div>`;
+                html += '</div>';
+                
+                // Boolean columns
+                if (report.boolean_columns && report.boolean_columns.length > 0) {
+                    html += `<div class="report-item info" style="margin-top: 10px;">
+                        <strong>🔘 Boolean Patterns Detected</strong>
+                        <div class="value">${report.boolean_columns.join(', ')}</div>
+                    </div>`;
+                }
+                
+                // Email columns
+                if (report.email_columns && report.email_columns.length > 0) {
+                    html += `<div class="report-item info" style="margin-top: 10px;">
+                        <strong>✉️ Email Columns Detected</strong>
+                        <div class="value">${report.email_columns.join(', ')}</div>
+                    </div>`;
+                }
+                
+                // Year columns
+                if (report.year_columns && report.year_columns.length > 0) {
+                    html += `<div class="report-item info" style="margin-top: 10px;">
+                        <strong>📅 Year Columns Detected</strong>
+                        <div class="value">${report.year_columns.join(', ')}</div>
+                    </div>`;
+                }
+                
+                // Issue cards
+                const cellIssues = report.cell_issues || {};
+                const hasIssues = Object.keys(cellIssues).length > 0;
+                
+                html += '<div class="issue-cards-container">';
+                
+                html += `<div class="issue-card ${hasIssues ? 'issues' : 'clean'}">
+                    <div class="card-header">
+                        <i class="fas ${hasIssues ? 'fa-exclamation-triangle' : 'fa-check-circle'}"></i>
+                        <h5>${hasIssues ? 'Issues Detected' : 'All Clean'}</h5>
+                        <span class="badge">${hasIssues ? Object.keys(cellIssues).length + ' columns have issues' : 'No issues'}</span>
+                    </div>
+                    <div class="card-body">`;
+                
+                if (hasIssues) {
+                    html += '<div style="max-height: 200px; overflow-y: auto;">';
+                    Object.keys(cellIssues).forEach(col => {
+                        const issues = cellIssues[col];
+                        const issueTypes = [];
+                        if (issues.missing) issueTypes.push({ type: 'missing', count: issues.missing.length, label: 'Missing Values', color: 'highlight' });
+                        if (issues.numeric_strings) issueTypes.push({ type: 'numeric_strings', count: issues.numeric_strings.length, label: 'Numbers as Text', color: 'warning' });
+                        if (issues.weird_characters) issueTypes.push({ type: 'weird_characters', count: issues.weird_characters.length, label: 'Weird Characters', color: 'warning' });
+                        if (issues.spaces) issueTypes.push({ type: 'spaces', count: issues.spaces.length, label: 'Leading/Trailing Spaces', color: 'info' });
+                        if (issues.outliers) issueTypes.push({ type: 'outliers', count: issues.outliers.length, label: 'Outliers', color: 'warning' });
+                        
+                        if (issueTypes.length > 0) {
+                            html += `<div style="padding: 6px 0; border-bottom: 1px solid #f0f4f8;">
+                                <div class="issue-item">
+                                    <span class="col-name">${col}</span>
+                                    <span class="issue-count">`;
+                            issueTypes.forEach(issue => {
+                                const rows = issues[issue.type] || [];
+                                const rowDisplay = rows.length > 0 ? `(Rows: ${rows.slice(0, 5).map(r => r+1).join(', ')}${rows.length > 5 ? '...' : ''})` : '';
+                                html += `<span class="${issue.color}">${issue.label}: ${issue.count} ${rowDisplay}</span> `;
+                            });
+                            html += `</span>
+                                </div>
+                            </div>`;
+                        }
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div style="text-align: center; padding: 12px; color: #38a169;">✅ No issues detected in selected columns.</div>';
+                }
+                
+                html += `</div></div>`;
+                
+                html += `<div class="issue-card info-card">
+                    <div class="card-header">
+                        <i class="fas fa-chart-pie"></i>
+                        <h5>Summary</h5>
+                        <span class="badge">Overview</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="issue-item">
+                            <span class="col-name">Total Rows</span>
+                            <span class="issue-count"><strong>${report.total_rows}</strong></span>
+                        </div>
+                        <div class="issue-item">
+                            <span class="col-name">Columns Analyzed</span>
+                            <span class="issue-count"><strong>${report.total_columns}</strong></span>
+                        </div>
+                        <div class="issue-item">
+                            <span class="col-name">Duplicate Rows</span>
+                            <span class="issue-count"><span class="${report.duplicate_rows > 0 ? 'highlight' : 'success'}">${report.duplicate_rows > 0 ? report.duplicate_rows + ' ⚠️' : 'None ✅'}</span></span>
+                        </div>
+                        ${Object.keys(report.missing_values).length > 0 ? `<div class="issue-item">
+                            <span class="col-name">Missing Values</span>
+                            <span class="issue-count"><span class="highlight">${Object.values(report.missing_values).reduce((a, b) => a + b, 0)} total</span></span>
+                        </div>` : ''}
+                        ${Object.keys(report.outliers).length > 0 ? `<div class="issue-item">
+                            <span class="col-name">Outliers</span>
+                            <span class="issue-count"><span class="warning">${Object.values(report.outliers).reduce((a, b) => a + b, 0)} total</span></span>
+                        </div>` : ''}
+                        ${report.empty_columns.length > 0 ? `<div class="issue-item">
+                            <span class="col-name">Empty Columns</span>
+                            <span class="issue-count"><span class="highlight">${report.empty_columns.join(', ')}</span></span>
+                        </div>` : ''}
+                        ${report.year_columns && report.year_columns.length > 0 ? `<div class="issue-item">
+                            <span class="col-name">Year Columns</span>
+                            <span class="issue-count"><span class="info">${report.year_columns.join(', ')}</span></span>
+                        </div>` : ''}
+                        ${report.boolean_columns && report.boolean_columns.length > 0 ? `<div class="issue-item">
+                            <span class="col-name">Boolean Patterns</span>
+                            <span class="issue-count"><span class="info">${report.boolean_columns.join(', ')}</span></span>
+                        </div>` : ''}
+                        ${report.email_columns && report.email_columns.length > 0 ? `<div class="issue-item">
+                            <span class="col-name">Email Columns</span>
+                            <span class="issue-count"><span class="info">${report.email_columns.join(', ')}</span></span>
+                        </div>` : ''}
+                    </div>
+                </div>`;
+                
+                html += '</div>';
+                
+                document.getElementById('reportContent').innerHTML = html;
+                document.getElementById('cleaningReport').classList.add('show');
+                showToast('Report generated successfully!', 'success');
+                
+            } catch (error) {
+                showToast('Failed to generate cleaning report: ' + error.message, 'error');
+            }
+        }
+
+        async function cleanData() {
+            const selectedColumns = getSelectedColumns();
+            
+            if (selectedColumns.length === 0) {
+                showToast('Please select at least one column to clean.', 'warning');
+                return;
+            }
+            
+            if (!confirm(`This will automatically clean ${selectedColumns.length} selected column(s). Continue?`)) return;
+            
+            try {
+                const response = await fetch('/clean-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        options: {
+                            clean_numeric_strings: true,
+                            clean_weird_characters: true,
+                            clean_spaces: true,
+                            remove_duplicates: true,
+                            remove_empty_columns: true,
+                            fix_dates: true,
+                            format_emails: true
+                        },
+                        columns: selectedColumns
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                document.getElementById('tableContainer').innerHTML = data.table_html;
+                document.getElementById('rowCount').textContent = data.rows;
+                document.getElementById('undoBtn').style.display = 'inline-flex';
+                document.getElementById('cleaningReport').classList.remove('show');
+                
+                const logList = document.getElementById('cleanLogList');
+                logList.innerHTML = '';
+                data.clean_log.steps.forEach(step => {
+                    const li = document.createElement('li');
+                    li.textContent = step;
+                    logList.appendChild(li);
+                });
+                
+                if (data.clean_log.removed_duplicates > 0) {
+                    const li = document.createElement('li');
+                    li.textContent = `Removed ${data.clean_log.removed_duplicates} duplicate rows`;
+                    logList.appendChild(li);
+                }
+                if (data.clean_log.removed_empty_cols > 0) {
+                    const li = document.createElement('li');
+                    li.textContent = `Removed ${data.clean_log.removed_empty_cols} empty columns`;
+                    logList.appendChild(li);
+                }
+                
+                const numericCleaned = data.clean_log.numeric_strings_cleaned || {};
+                Object.keys(numericCleaned).forEach(col => {
+                    const info = numericCleaned[col];
+                    const li = document.createElement('li');
+                    li.textContent = `Converted ${info.converted} numeric strings in "${col}"${info.failed > 0 ? ` (${info.failed} failed)` : ''}`;
+                    logList.appendChild(li);
+                });
+                
+                const weirdCleaned = data.clean_log.weird_characters_cleaned || {};
+                Object.keys(weirdCleaned).forEach(col => {
+                    const info = weirdCleaned[col];
+                    const li = document.createElement('li');
+                    li.textContent = `Removed ${info.weird_removed} weird characters from "${col}"`;
+                    logList.appendChild(li);
+                });
+                
+                const spacesCleaned = data.clean_log.spaces_cleaned || {};
+                Object.keys(spacesCleaned).forEach(col => {
+                    const li = document.createElement('li');
+                    li.textContent = `Cleaned ${spacesCleaned[col]} cells with spaces in "${col}"`;
+                    logList.appendChild(li);
+                });
+                
+                if (data.clean_log.date_columns_fixed > 0) {
+                    const li = document.createElement('li');
+                    li.textContent = `Fixed ${data.clean_log.date_columns_fixed} date columns`;
+                    logList.appendChild(li);
+                }
+                
+                if (data.clean_log.emails_formatted > 0) {
+                    const li = document.createElement('li');
+                    li.textContent = `Formatted ${data.clean_log.emails_formatted} email(s)`;
+                    logList.appendChild(li);
+                }
+                
+                document.getElementById('cleanLog').classList.add('show');
+                showToast(`Data cleaned successfully! ${data.clean_log.steps.length} steps applied to ${selectedColumns.length} column(s).`, 'success');
+                
+            } catch (error) {
+                showToast('Cleaning failed. Please try again.', 'error');
+            }
+        }
+
+        async function undoCleaning() {
+            if (!confirm('Undo the last cleaning operation?')) return;
+            
+            try {
+                const response = await fetch('/undo-cleaning', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                document.getElementById('tableContainer').innerHTML = data.table_html;
+                document.getElementById('rowCount').textContent = data.rows;
+                document.getElementById('undoBtn').style.display = 'none';
+                document.getElementById('cleanLog').classList.remove('show');
+                document.getElementById('cleaningReport').classList.remove('show');
+                showToast('Cleaning undone successfully!', 'success');
+                
+            } catch (error) {
+                showToast('Undo failed. Please try again.', 'error');
+            }
+        }
+
+        // ===== BULK UPDATE =====
+        async function bulkFind() {
+            const searchTerm = document.getElementById('bulkSearchTerm').value.trim();
+            const caseSensitive = document.getElementById('bulkCaseSensitive').checked;
+            
+            if (!searchTerm) {
+                showToast('Please enter a search term', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/bulk-find', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        search_term: searchTerm,
+                        case_sensitive: caseSensitive
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                const resultsDiv = document.getElementById('bulkResults');
+                const contentDiv = document.getElementById('bulkResultsContent');
+                
+                if (data.total_matches === 0) {
+                    contentDiv.innerHTML = `<div style="color: #a0aec0; text-align: center; padding: 20px;">
+                        <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        No matches found for "${searchTerm}"
+                    </div>`;
+                    resultsDiv.classList.add('show');
+                    showToast(`No matches found for "${searchTerm}"`, 'warning');
+                    return;
+                }
+                
+                let html = `<div style="margin-bottom: 12px; color: #1a202c; font-size: 0.95rem;">
+                    <strong>Found ${data.total_matches} matches in ${data.columns_affected} columns</strong>
+                </div>`;
+                
+                data.results.forEach(result => {
+                    html += `<div style="margin-top: 10px; padding: 12px; background: #f7fafc; border-radius: 8px; border-left: 4px solid #4a6cf7;">
+                        <strong style="color: #4a6cf7; font-size: 0.9rem;">Column: ${result.column}</strong>
+                        <span style="color: #a0aec0; margin-left: 8px; font-size: 0.85rem;">(${result.count} matches)</span>`;
+                    
+                    result.occurrences.slice(0, 15).forEach(occ => {
+                        const highlighted = occ.value.replace(
+                            new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi'),
+                            match => `<span class="highlight">${match}</span>`
+                        );
+                        html += `<div class="bulk-result-item">
+                            <span>Row ${occ.row + 1}: ${highlighted}</span>
+                            <div class="action-buttons">
+                                <button class="btn btn-success btn-sm" onclick="replaceSingleRow(${occ.row}, '${result.column}', '${searchTerm}', '${document.getElementById('bulkReplaceTerm').value}', ${caseSensitive})">
+                                    <i class="fas fa-arrow-right"></i> Replace This
+                                </button>
+                                <button class="btn btn-warning btn-sm" onclick="replaceAllInColumn('${result.column}', '${searchTerm}', '${document.getElementById('bulkReplaceTerm').value}', ${caseSensitive})">
+                                    <i class="fas fa-exchange-alt"></i> Replace All
+                                </button>
+                            </div>
+                        </div>`;
+                    });
+                    
+                    if (result.occurrences.length > 15) {
+                        html += `<div style="color: #a0aec0; text-align: center; padding: 6px; font-size: 0.85rem;">
+                            ... and ${result.occurrences.length - 15} more matches
+                        </div>`;
+                    }
+                    
+                    html += `</div>`;
+                });
+                
+                contentDiv.innerHTML = html;
+                resultsDiv.classList.add('show');
+                showToast(`Found ${data.total_matches} matches`, 'success');
+                
+            } catch (error) {
+                showToast('Find failed. Please try again.', 'error');
+            }
+        }
+
+        async function bulkReplaceAll() {
+            const column = document.getElementById('bulkColumn').value;
+            const searchTerm = document.getElementById('bulkSearchTerm').value.trim();
+            const replaceTerm = document.getElementById('bulkReplaceTerm').value;
+            const caseSensitive = document.getElementById('bulkCaseSensitive').checked;
+            
+            if (!column) {
+                showToast('Please select a column', 'warning');
+                return;
+            }
+            if (!searchTerm) {
+                showToast('Please enter a search term', 'warning');
+                return;
+            }
+            
+            if (!confirm(`Replace all "${searchTerm}" with "${replaceTerm}" in column "${column}"?`)) return;
+            
+            await performBulkReplace(column, searchTerm, replaceTerm, caseSensitive, null);
+        }
+
+        async function replaceAllInColumn(column, searchTerm, replaceTerm, caseSensitive) {
+            if (!confirm(`Replace all "${searchTerm}" with "${replaceTerm}" in column "${column}"?`)) return;
+            await performBulkReplace(column, searchTerm, replaceTerm, caseSensitive, null);
+        }
+
+        async function replaceSingleRow(row, column, searchTerm, replaceTerm, caseSensitive) {
+            if (!confirm(`Replace "${searchTerm}" with "${replaceTerm}" in row ${row + 1}?`)) return;
+            await performBulkReplace(column, searchTerm, replaceTerm, caseSensitive, row);
+        }
+
+        async function performBulkReplace(column, searchTerm, replaceTerm, caseSensitive, singleRow) {
+            try {
+                const response = await fetch('/bulk-replace', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        column: column,
+                        search_term: searchTerm,
+                        replace_term: replaceTerm,
+                        case_sensitive: caseSensitive,
+                        single_row: singleRow
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                document.getElementById('tableContainer').innerHTML = data.table_html;
+                document.getElementById('rowCount').textContent = data.rows;
+                document.getElementById('bulkResults').classList.remove('show');
+                document.getElementById('undoBtn').style.display = 'inline-flex';
+                
+                const result = data.result;
+                if (result.affected_rows > 0) {
+                    const message = singleRow !== null 
+                        ? `Replaced 1 occurrence in row ${singleRow + 1}`
+                        : `Replaced ${result.affected_rows} occurrences in column "${result.column}"`;
+                    showToast(message, 'success');
+                    if (singleRow !== null) {
+                        await bulkFind();
+                    }
+                } else {
+                    showToast('No matches found to replace', 'warning');
+                }
+                
+            } catch (error) {
+                showToast('Replace failed. Please try again.', 'error');
+            }
+        }
+
+        // ===== EDIT MODE =====
+        function toggleEditMode() {
+            editMode = !editMode;
+            const cells = document.querySelectorAll('.formatted-table td');
+            const editBtn = document.getElementById('editToggleBtn');
+            
+            cells.forEach(cell => {
+                if (editMode) {
+                    cell.setAttribute('contenteditable', 'true');
+                    cell.style.cursor = 'text';
+                } else {
+                    cell.removeAttribute('contenteditable');
+                    cell.style.cursor = 'default';
+                }
+            });
+            
+            if (!editMode) {
+                saveAllEdits();
+                editBtn.className = 'btn btn-warning';
+                editBtn.innerHTML = '<i class="fas fa-edit"></i> <span class="btn-text">Edit Mode</span>';
+                showToast('Edit mode disabled. Changes saved.', 'info');
+            } else {
+                editBtn.className = 'btn btn-success active';
+                editBtn.innerHTML = '<i class="fas fa-save"></i> <span class="btn-text">Save Changes</span>';
+                showToast('Edit mode enabled. Click any cell to edit.', 'info');
+            }
+        }
+
+        async function saveAllEdits() {
+            const cells = document.querySelectorAll('.formatted-table td[contenteditable="true"]');
+            let savedCount = 0;
+            
+            for (const cell of cells) {
+                const row = cell.parentElement.rowIndex - 1;
+                const col = cell.cellIndex;
+                const value = cell.textContent;
+                
+                try {
+                    const response = await fetch('/update-cell', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ row, col, value })
+                    });
+                    if (response.ok) savedCount++;
+                } catch (error) {
+                    console.error('Failed to save cell edit:', error);
+                }
+            }
+            
+            if (savedCount > 0) {
+                showToast(`${savedCount} cell changes saved successfully!`, 'success');
+            }
+        }
+
+        // ===== ROW OPERATIONS =====
+        async function addRow() {
+            try {
+                const response = await fetch('/add-row', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    await processFile();
+                    showToast('New row added successfully!', 'success');
+                } else {
+                    showToast(data.error || 'Failed to add row', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to add row. Please try again.', 'error');
+            }
+        }
+
+        async function deleteRow(rowIndex) {
+            if (!confirm('Are you sure you want to delete this row?')) return;
+
+            try {
+                const response = await fetch('/delete-row', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ row: rowIndex })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    await processFile();
+                    showToast('Row deleted successfully!', 'success');
+                } else {
+                    showToast(data.error || 'Failed to delete row', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to delete row. Please try again.', 'error');
+            }
+        }
+
+        // ===== RESET =====
+        async function resetData() {
+            if (!confirm('This will reset all changes to the original data. Continue?')) return;
+
+            try {
+                const response = await fetch('/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    await processFile();
+                    document.getElementById('undoBtn').style.display = 'none';
+                    document.getElementById('cleanLog').classList.remove('show');
+                    document.getElementById('bulkResults').classList.remove('show');
+                    document.getElementById('cleaningReport').classList.remove('show');
+                    
+                    const editBtn = document.getElementById('editToggleBtn');
+                    editBtn.className = 'btn btn-warning';
+                    editBtn.innerHTML = '<i class="fas fa-edit"></i> <span class="btn-text">Edit Mode</span>';
+                    editMode = false;
+                    
+                    showToast('Data reset to original!', 'success');
+                } else {
+                    showToast(data.error || 'Failed to reset data', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to reset data. Please try again.', 'error');
+            }
+        }
+
+        // ===== DOWNLOAD =====
+        async function downloadFile(format) {
+            try {
+                const response = await fetch(`/download/${format}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `formatted_data.${format === 'csv' ? 'csv' : 'xlsx'}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    showToast(`File downloaded successfully as ${format.toUpperCase()}!`, 'success');
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Download failed', 'error');
+                }
+            } catch (error) {
+                showToast('Download failed. Please try again.', 'error');
+            }
+        }
+
+        // ===== UTILITY =====
+        function hideResults() {
+            document.getElementById('statsBar').classList.remove('show');
+            document.getElementById('columnInfo').classList.remove('show');
+            document.getElementById('tableWrapper').classList.remove('show');
+            document.getElementById('downloadSection').classList.remove('show');
+            document.getElementById('toolbar').classList.remove('show');
+            document.getElementById('editControls').classList.remove('show');
+            document.getElementById('cleaningSection').classList.remove('show');
+            document.getElementById('bulkSection').classList.remove('show');
+        }
+
+        function resetAll() {
+            currentFile = null;
+            fileInput.value = '';
+            fileInfo.classList.remove('show');
+            hideResults();
+            document.getElementById('tableContainer').innerHTML = '';
+            document.getElementById('searchInput').value = '';
+            document.getElementById('undoBtn').style.display = 'none';
+            document.getElementById('cleanLog').classList.remove('show');
+            document.getElementById('cleaningReport').classList.remove('show');
+            document.getElementById('bulkResults').classList.remove('show');
+            
+            document.getElementById('uploadZone').classList.remove('hidden');
+            document.getElementById('newUploadBtn').classList.remove('show');
+            
+            const editBtn = document.getElementById('editToggleBtn');
+            editBtn.className = 'btn btn-warning';
+            editBtn.innerHTML = '<i class="fas fa-edit"></i> <span class="btn-text">Edit Mode</span>';
+            editMode = false;
+            
+            closeDuplicateModal();
+            closeYearModal();
+        }
+
+        // ===== KEYBOARD SHORTCUTS =====
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                if (currentFile && !processBtn.disabled) {
+                    processFile();
+                }
+            }
+            if (e.key === 'Escape') {
+                if (editMode) {
+                    toggleEditMode();
+                }
+                document.getElementById('cleaningReport').classList.remove('show');
+                document.getElementById('bulkResults').classList.remove('show');
+                closeDuplicateModal();
+                closeYearModal();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                if (editMode) {
+                    e.preventDefault();
+                    toggleEditMode();
+                }
+            }
+        });
+
+        // ===== INIT =====
+        checkAuth();
+        loadCollapseStates();
+    </script>
+</body>
+</html>
