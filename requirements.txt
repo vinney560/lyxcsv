@@ -1,7 +1,10 @@
 Flask
+Flask-Login
 pandas
 numpy
 openpyxl
 scipy
 Werkzeug
 python-decouple
+Flask-SQLAlchemy
+psycopg2-binary

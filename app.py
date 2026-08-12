@@ -1,46 +1,458 @@
-from flask import Flask, render_template, request, send_file, jsonify, session
-import pandas as pd
-import io
-import re
+from flask import Flask, render_template, request, send_file, jsonify, session, redirect
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import check_password_hash, generate_password_hash
+from flask_sqlalchemy import SQLAlchemy
+import io, re, warnings, secrets, json, hashlib
 from datetime import datetime
-import openpyxl
-from werkzeug.security import check_password_hash
-import warnings
-import json
-import hashlib
-import os
-from functools import wraps
-import numpy as np
-from scipy import stats
+from zoneinfo import ZoneInfo
 from decouple import config
+from scipy import stats
+import pandas as pd
+import numpy as np
+import openpyxl
 
-# Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 app = Flask(__name__)
 
-# ===== CONFIGURATION FROM .env =====
-app.secret_key = config('SECRET_KEY', default='test_your_secret_key')
+app.secret_key = config('SECRET_KEY', default='test_secret_eky')
 app.config['MAX_CONTENT_LENGTH'] = int(config('MAX_CONTENT_LENGTH', default=100 * 1024 * 1024))
-app.config['CURRENT_DF'] = None
-app.config['CURRENT_ORIGINAL_DF'] = None
-app.config['CLEANING_HISTORY'] = []
+app.config['SQLALCHEMY_DATABASE_URI'] = config('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,
+    'pool_recycle': 3600,
+    'pool_pre_ping': True,
+}
 
-PASSWORD_HASH = config('PASSWORD_HASH', default='scrypt:32768:8:1$e7lR8kAjb5FO5UPO$7baf61e4819f40495e885fdab107595473232a79ae1d08a6cf7abe12518f1e83045e7cdc09b0736a783d0f12411e2a8cd53f8132498ff2653b07808f51d944e8')
+db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.refresh_view = 'login'
 
-# ===================== LOGIN DECORATOR =====================
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('authenticated'):
-            return jsonify({'error': 'Authentication required'}), 401
-        return f(*args, **kwargs)
-    return decorated_function
+# =============== GMT +3 ====================
+NAIROBI_NOW = datetime.now(ZoneInfo('Africa/Nairobi'))
+# ===================== USER MODEL =====================
 
-# ===================== EMAIL FORMATTER CLASS =====================
-class EmailFormatter:
-    """Smart email formatting and completion"""
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
     
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=lambda: NAIROBI_NOW)
+    last_login = db.Column(db.DateTime, default=lambda: NAIROBI_NOW)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    uploads = db.relationship('UploadHistory', backref='user', lazy=True)
+    processing_jobs = db.relationship('ProcessingJob', backref='user', lazy=True)
+    saved_data = db.relationship('SavedCleanData', backref='user', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'is_active': self.is_active
+        }
+
+class UploadHistory(db.Model):
+    __tablename__ = 'upload_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    filename = db.Column(db.String(255), nullable=False)
+    file_size = db.Column(db.BigInteger)
+    file_type = db.Column(db.String(50))
+    original_headers = db.Column(db.Text)
+    row_count = db.Column(db.Integer)
+    column_count = db.Column(db.Integer)
+    uploaded_at = db.Column(db.DateTime, default=lambda: NAIROBI_NOW)
+    status = db.Column(db.String(50), default='uploaded')
+    session_id = db.Column(db.String(100))
+    
+    processing_jobs = db.relationship('ProcessingJob', backref='upload', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'filename': self.filename,
+            'file_size': self.file_size,
+            'file_type': self.file_type,
+            'row_count': self.row_count,
+            'column_count': self.column_count,
+            'uploaded_at': self.uploaded_at.isoformat() if self.uploaded_at else None,
+            'status': self.status
+        }
+
+class ProcessingJob(db.Model):
+    __tablename__ = 'processing_jobs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    upload_id = db.Column(db.Integer, db.ForeignKey('upload_history.id'), nullable=True)
+    job_type = db.Column(db.String(50))
+    status = db.Column(db.String(50), default='pending')
+    started_at = db.Column(db.DateTime, default=lambda: NAIROBI_NOW)
+    completed_at = db.Column(db.DateTime)
+    job_details = db.Column(db.Text)
+    result_summary = db.Column(db.Text)
+    input_data_hash = db.Column(db.String(64))
+    output_data_hash = db.Column(db.String(64))
+    session_id = db.Column(db.String(100))
+    
+    audit_logs = db.relationship('AuditLog', backref='job', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'job_type': self.job_type,
+            'status': self.status,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'job_details': json.loads(self.job_details) if self.job_details else {},
+            'result_summary': json.loads(self.result_summary) if self.result_summary else {}
+        }
+
+class CleanedData(db.Model):
+    __tablename__ = 'cleaned_data'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    upload_id = db.Column(db.Integer, db.ForeignKey('upload_history.id'), nullable=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('processing_jobs.id'), nullable=True)
+    data_json = db.Column(db.Text)
+    data_hash = db.Column(db.String(64))
+    row_count = db.Column(db.Integer)
+    column_count = db.Column(db.Integer)
+    cleaning_steps = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=lambda: NAIROBI_NOW)
+    storage_path = db.Column(db.String(500))
+    storage_type = db.Column(db.String(50), default='json')
+    session_id = db.Column(db.String(100))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'row_count': self.row_count,
+            'column_count': self.column_count,
+            'cleaning_steps': json.loads(self.cleaning_steps) if self.cleaning_steps else [],
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class SavedCleanData(db.Model):
+    __tablename__ = 'saved_clean_data'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    filename = db.Column(db.String(255), nullable=False)
+    file_size = db.Column(db.BigInteger)
+    file_type = db.Column(db.String(50), default='csv')
+    data_json = db.Column(db.Text, nullable=False)
+    data_hash = db.Column(db.String(64))
+    row_count = db.Column(db.Integer)
+    column_count = db.Column(db.Integer)
+    cleaning_steps = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=lambda: NAIROBI_NOW)
+    session_id = db.Column(db.String(100))
+    status = db.Column(db.String(50), default='saved')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'filename': self.filename,
+            'file_type': self.file_type,
+            'row_count': self.row_count,
+            'column_count': self.column_count,
+            'cleaning_steps': json.loads(self.cleaning_steps) if self.cleaning_steps else [],
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'status': self.status
+        }
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('processing_jobs.id'), nullable=True)
+    action = db.Column(db.String(100), nullable=False)
+    details = db.Column(db.Text)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.String(255))
+    session_id = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=lambda: NAIROBI_NOW)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'action': self.action,
+            'details': json.loads(self.details) if self.details else {},
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# =========== Unique table IDs ================
+def gen_unique_id(_tablename, max_attempts=100):
+    for attempt in range(max_attempts):
+        r_id = secrets.randbelow(900000) + 100000
+        
+        with db.session.begin_nested():
+            existing = db.session.query(_tablename.id).filter_by(id=r_id).with_for_update().first()
+            if not existing:
+                return r_id
+        
+        if attempt < max_attempts - 1:
+            import time
+            time.sleep(0.01) 
+    
+    raise ValueError(f"Failed to generate unique ID after {max_attempts} attempts and fallback attempts")
+
+# ===================== HELPER FUNCTIONS =====================
+
+def get_or_create_session_id():
+    if 'session_id' not in session:
+        session['session_id'] = secrets.token_hex(16)
+    return session['session_id']
+
+def log_audit(action, details=None, job_id=None):
+    try:
+        audit = AuditLog(
+            id=gen_unique_id(AuditLog),
+            user_id=current_user.id if current_user.is_authenticated else None,
+            job_id=job_id,
+            action=action,
+            details=json.dumps(details) if details else None,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent'),
+            session_id=get_or_create_session_id()
+        )
+        db.session.add(audit)
+        db.session.commit()
+    except Exception as e:
+        print(f"Audit log failed: {e}")
+        db.session.rollback()
+
+def validate_username(username):
+    pattern = r'^[a-zA-Z0-9_ ]{3,20}$'
+    return re.match(pattern, username) is not None
+
+def validate_password(password):
+    return 6 <= len(password) <= 14
+
+def validate_email(email):
+    if not email:
+        return True
+    pattern = r'^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com)$'
+    return re.match(pattern, email) is not None
+
+def save_upload_record(filename, file_size, file_type, headers, rows, cols):
+    try:
+        upload = UploadHistory(
+            id=gen_unique_id(UploadHistory),
+            user_id=current_user.id if current_user.is_authenticated else None,
+            filename=filename,
+            file_size=file_size,
+            file_type=file_type,
+            original_headers=json.dumps(headers) if headers else None,
+            row_count=rows,
+            column_count=cols,
+            session_id=get_or_create_session_id()
+        )
+        db.session.add(upload)
+        db.session.commit()
+        return upload.id
+    except Exception as e:
+        print(f"Failed to save upload record: {e}")
+        db.session.rollback()
+        return None
+
+def save_processing_job(upload_id, job_type, job_details=None):
+    try:
+        job = ProcessingJob(
+            id=gen_unique_id(ProcessingJob),
+            user_id=current_user.id if current_user.is_authenticated else None,
+            upload_id=upload_id,
+            job_type=job_type,
+            job_details=json.dumps(job_details) if job_details else None,
+            session_id=get_or_create_session_id(),
+            status='started'
+        )
+        db.session.add(job)
+        db.session.commit()
+        return job.id
+    except Exception as e:
+        print(f"Failed to save job record: {e}")
+        db.session.rollback()
+        return None
+
+def update_job_status(job_id, status, result_summary=None):
+    try:
+        job = db.session.query(ProcessingJob).get(job_id)
+        if job:
+            job.status = status
+            if status in ['completed', 'failed']:
+                job.completed_at = NAIROBI_NOW
+            if result_summary:
+                job.result_summary = json.dumps(result_summary)
+            db.session.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to update job: {e}")
+        db.session.rollback()
+    return False
+
+def save_cleaned_data(job_id, upload_id, df, cleaning_steps=None):
+    try:
+        data_json = df.to_json(orient='records', date_format='iso')
+        data_hash = hashlib.sha256(data_json.encode()).hexdigest()
+        
+        cleaned = CleanedData(
+            id=gen_unique_id(CleanedData),
+            user_id=current_user.id if current_user.is_authenticated else None,
+            upload_id=upload_id,
+            job_id=job_id,
+            data_json=data_json,
+            data_hash=data_hash,
+            row_count=len(df),
+            column_count=len(df.columns),
+            cleaning_steps=json.dumps(cleaning_steps) if cleaning_steps else None,
+            session_id=get_or_create_session_id()
+        )
+        db.session.add(cleaned)
+        db.session.commit()
+        return cleaned.id
+    except Exception as e:
+        print(f"Failed to save cleaned data: {e}")
+        db.session.rollback()
+        return None
+
+def get_cleaned_data(cleaned_id):
+    try:
+        cleaned = db.session.query(CleanedData).get(cleaned_id)
+        if cleaned and cleaned.data_json:
+            df = pd.read_json(io.StringIO(cleaned.data_json), orient='records')
+            return df
+    except Exception as e:
+        print(f"Failed to retrieve cleaned data: {e}")
+    return None
+
+def get_user_history_with_data(user_id=None):
+    try:
+        if user_id:
+            uploads = UploadHistory.query.filter_by(user_id=user_id).order_by(UploadHistory.uploaded_at.desc()).limit(50).all()
+        else:
+            session_id = get_or_create_session_id()
+            uploads = UploadHistory.query.filter_by(session_id=session_id).order_by(UploadHistory.uploaded_at.desc()).limit(50).all()
+        
+        history = []
+        for upload in uploads:
+            upload_dict = upload.to_dict()
+            cleaned_data = CleanedData.query.filter_by(upload_id=upload.id).order_by(CleanedData.created_at.desc()).first()
+            if cleaned_data:
+                upload_dict['has_data'] = True
+                upload_dict['cleaned_id'] = cleaned_data.id
+                upload_dict['cleaned_at'] = cleaned_data.created_at.isoformat() if cleaned_data.created_at else None
+                upload_dict['cleaned_rows'] = cleaned_data.row_count
+                upload_dict['cleaned_cols'] = cleaned_data.column_count
+                upload_dict['status'] = 'saved'
+            else:
+                upload_dict['has_data'] = False
+                upload_dict['status'] = upload.status or 'uploaded'
+            history.append(upload_dict)
+        return history
+    except Exception as e:
+        print(f"Failed to get history: {e}")
+        return []
+
+def save_saved_data_to_db(df, file_name):
+    try:
+        if not current_user.is_authenticated:
+            return None
+        
+        data_json = df.to_json(orient='records', date_format='iso')
+        data_hash = hashlib.sha256(data_json.encode()).hexdigest()
+        
+        saved_data = SavedCleanData(
+            id=gen_unique_id(SavedCleanData),
+            user_id=current_user.id,
+            filename=f"{file_name}.csv",
+            file_size=len(data_json.encode('utf-8')),
+            file_type='csv',
+            data_json=data_json,
+            data_hash=data_hash,
+            row_count=len(df),
+            column_count=len(df.columns),
+            cleaning_steps=json.dumps(['Final save']),
+            status='saved'
+        )
+        db.session.add(saved_data)
+        db.session.commit()
+        
+        log_audit('save_saved_data', {'filename': file_name, 'rows': len(df), 'saved_id': saved_data.id})
+        return saved_data.id
+    except Exception as e:
+        db.session.rollback()
+        print(f"Failed to save saved data: {e}")
+        return None
+
+def get_saved_data_list(user_id=None):
+    try:
+        if user_id:
+            saved_data = SavedCleanData.query.filter_by(user_id=user_id).order_by(SavedCleanData.created_at.desc()).limit(50).all()
+        else:
+            session_id = get_or_create_session_id()
+            saved_data = SavedCleanData.query.filter_by(session_id=session_id).order_by(SavedCleanData.created_at.desc()).limit(50).all()
+        return [s.to_dict() for s in saved_data]
+    except Exception as e:
+        print(f"Failed to get saved data: {e}")
+        return []
+
+def load_saved_data_from_db(saved_id):
+    try:
+        saved_data = db.session.query(SavedCleanData).get(saved_id)
+        if saved_data and saved_data.data_json:
+            df = pd.read_json(io.StringIO(saved_data.data_json), orient='records')
+            return df
+    except Exception as e:
+        print(f"Failed to load saved data: {e}")
+    return None
+
+def delete_saved_data_from_db(saved_id, user_id):
+    try:
+        saved_data = SavedCleanData.query.filter_by(id=saved_id, user_id=user_id).first()
+        if saved_data:
+            db.session.delete(saved_data)
+            db.session.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to delete saved data: {e}")
+        db.session.rollback()
+    return False
+
+def clear_saved_data_for_user(user_id):
+    try:
+        if user_id:
+            SavedCleanData.query.filter_by(user_id=user_id).delete()
+        else:
+            session_id = get_or_create_session_id()
+            SavedCleanData.query.filter_by(session_id=session_id).delete()
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Failed to clear saved data: {e}")
+        db.session.rollback()
+    return False
+
+# ===================== EMAIL FORMATTER =====================
+
+class EmailFormatter:
     DOMAIN_PATTERNS = {
         'gmail': ['gmail', 'gmal', 'gmail.', 'google', 'googl', 'gamil'],
         'yahoo': ['yahoo', 'yaho', 'yahho', 'yhoo', 'yho'],
@@ -173,10 +585,9 @@ class EmailFormatter:
             'detected_domain': common_domain
         }
 
-# ===================== DATA CLEANER CLASS =====================
+# ===================== DATA CLEANER =====================
+
 class DataCleaner:
-    """Comprehensive data cleaning class"""
-    
     @staticmethod
     def get_cleaning_report(df, columns=None):
         if columns is None:
@@ -615,7 +1026,8 @@ class DataCleaner:
                 pass
         return df, {'date_columns_fixed': int(fixed)}
 
-# ===================== DATA FORMATTER CLASS =====================
+# ===================== DATA FORMATTER =====================
+
 class DataFormatter:
     @staticmethod
     def clean_headers(df):
@@ -852,7 +1264,8 @@ class DataFormatter:
             
             return df[df.apply(row_contains, axis=1)]
 
-# ===================== BULK UPDATER CLASS =====================
+# ===================== BULK UPDATER =====================
+
 class BulkUpdater:
     @staticmethod
     def find_and_replace(df, search_col, search_term, replace_term, case_sensitive=False, single_row=None):
@@ -972,7 +1385,8 @@ class BulkUpdater:
         
         return results
 
-# ===================== HELPER FUNCTIONS =====================
+# ===================== FILE PROCESSING =====================
+
 def process_file(file):
     filename = file.filename.lower()
     
@@ -1012,37 +1426,146 @@ def process_file(file):
         app.config['CLEANING_HISTORY'] = []
         
         formatted_df = DataFormatter.apply_all_formattings(df)
+        
+        try:
+            upload_id = save_upload_record(
+                filename=file.filename,
+                file_size=file.content_length if hasattr(file, 'content_length') else None,
+                file_type=filename.split('.')[-1],
+                headers=df.columns.tolist(),
+                rows=len(df),
+                cols=len(df.columns)
+            )
+            app.config['CURRENT_UPLOAD_ID'] = upload_id
+        except Exception as e:
+            print(f"Failed to save upload to database: {e}")
+        
         return formatted_df, None
         
     except Exception as e:
         return None, str(e)
 
 # ===================== ROUTES =====================
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-@app.route('/auth', methods=['POST'])
-def authenticate():
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard.html', username=current_user.username)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'GET':
+        return render_template('register.html')
+    
     data = request.get_json()
+    username = data.get('username', '').strip()
     password = data.get('password', '')
+    confirm_password = data.get('confirm_password', '')
+    email = data.get('email', '').strip()
+    
+    if not username or not password or not confirm_password:
+        return jsonify({'success': False, 'message': 'All fields are required'}), 400
+    
+    if not validate_username(username):
+        return jsonify({'success': False, 'message': 'Username must be 3-20 characters (letters, numbers, underscores, spaces)'}), 400
+    
+    if not validate_password(password):
+        return jsonify({'success': False, 'message': 'Password must be 6-14 characters'}), 400
+    
+    if password != confirm_password:
+        return jsonify({'success': False, 'message': 'Passwords do not match'}), 400
+    
+    if email and not validate_email(email):
+        return jsonify({'success': False, 'message': 'Email must be @gmail.com or @yahoo.com'}), 400
+    
+    if User.query.filter_by(username=username).first():
+        return jsonify({'success': False, 'message': 'Username already taken'}), 400
+    
+    if email and User.query.filter_by(email=email).first():
+        return jsonify({'success': False, 'message': 'Email already registered'}), 400
     
     try:
-        if check_password_hash(PASSWORD_HASH, password):
-            session['authenticated'] = True
-            session.permanent = True
-            return jsonify({'success': True, 'message': 'Authentication successful'})
-        else:
-            return jsonify({'success': False, 'message': 'Invalid password'}), 401
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Authentication error: {str(e)}'}), 500
+        user = User(
+            id=gen_unique_id(User),
+            username=username,
+            password_hash=generate_password_hash(password),
+            email=email if email else None
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        login_user(user)
+        log_audit('register', {'username': username, 'redirect': '/dashboard'})
 
+        return jsonify({
+                'success': True, 
+                'message': 'Registration successful!',
+                'username': user.username,
+                'redirect': '/dashboard'
+            }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Registration failed: {str(e)}'}), 500
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    remember = data.get('remember', False)
+    
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Username and password are required'}), 400
+    
+    # Check if user exists
+    user = User.query.filter(
+        (User.username == username) | (User.email == username)
+    ).first()
+    
+    if not user:
+        return jsonify({'success': False, 'message': 'Invalid username or password'}), 401
+    
+    # Verify password
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({'success': False, 'message': 'Invalid username or password'}), 401
+    
+    # Login user
+    login_user(user, remember=remember)
+    log_audit('login', {'username': user.username})
+    
+    return jsonify({
+        'success': True, 
+        'message': 'Login successful!',
+        'username': user.username,
+        'redirect': '/dashboard'
+    }), 200
+
+@app.route('/api/check-auth', methods=['GET'])
+def check_auth():
+    """Check if user is authenticated"""
+    if current_user.is_authenticated:
+        return jsonify({
+            'authenticated': True,
+            'username': current_user.username,
+            'user_id': current_user.id
+        })
+    else:
+        return jsonify({
+            'authenticated': False
+        })
+    
 @app.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    session.pop('authenticated', None)
+    log_audit('logout')
+    logout_user()
     return jsonify({'success': True, 'message': 'Logged out successfully'})
-
-@app.route('/', methods=['GET'])
-def index():
-    return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -1057,6 +1580,7 @@ def upload_file():
     formatted_df, error = process_file(file)
     
     if error:
+        log_audit('upload_failed', {'filename': file.filename, 'error': error})
         return jsonify({'error': error}), 400
     
     serializable_df = DataFormatter.convert_to_serializable(formatted_df)
@@ -1070,6 +1594,12 @@ def upload_file():
     
     app.config['CURRENT_DF'] = formatted_df
     
+    log_audit('upload_success', {
+        'filename': file.filename,
+        'rows': len(serializable_df),
+        'cols': len(serializable_df.columns)
+    })
+    
     return jsonify({
         'success': True,
         'table_html': table_html,
@@ -1079,7 +1609,147 @@ def upload_file():
         'filename': file.filename
     })
 
-# ===================== CLEANING ROUTES =====================
+@app.route('/history', methods=['GET'])
+@login_required
+def get_history():
+    user_id = current_user.id if current_user.is_authenticated else None
+    history = get_user_history_with_data(user_id)
+    return jsonify({'success': True, 'history': history})
+
+@app.route('/load-history/<int:upload_id>', methods=['GET'])
+@login_required
+def load_history(upload_id):
+    try:
+        upload = UploadHistory.query.filter_by(id=upload_id, user_id=current_user.id).first()
+        if not upload:
+            return jsonify({'error': 'File not found or access denied'}), 404
+        
+        cleaned_data = CleanedData.query.filter_by(upload_id=upload_id).order_by(CleanedData.created_at.desc()).first()
+        if not cleaned_data or not cleaned_data.data_json:
+            return jsonify({'error': 'No data found for this upload'}), 404
+        
+        df = pd.read_json(io.StringIO(cleaned_data.data_json), orient='records')
+        
+        app.config['CURRENT_DF'] = df
+        app.config['CURRENT_ORIGINAL_DF'] = df.copy()
+        app.config['CLEANING_HISTORY'] = []
+        app.config['CURRENT_UPLOAD_ID'] = upload_id
+        
+        serializable_df = DataFormatter.convert_to_serializable(df)
+        column_info = DataFormatter.get_column_info(serializable_df)
+        
+        table_html = serializable_df.to_html(
+            classes='formatted-table',
+            index=False,
+            escape=False
+        )
+        
+        log_audit('load_history', {'upload_id': upload_id, 'filename': upload.filename})
+        
+        return jsonify({
+            'success': True,
+            'table_html': table_html,
+            'columns': column_info,
+            'rows': int(len(serializable_df)),
+            'cols': int(len(serializable_df.columns)),
+            'filename': upload.filename,
+            'upload_id': upload_id
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to load file: {str(e)}'}), 500
+
+@app.route('/download-history/<int:upload_id>')
+@login_required
+def download_history(upload_id):
+    try:
+        upload = UploadHistory.query.filter_by(id=upload_id, user_id=current_user.id).first()
+        if not upload:
+            return jsonify({'error': 'File not found or access denied'}), 404
+        
+        cleaned_data = CleanedData.query.filter_by(upload_id=upload_id).order_by(CleanedData.created_at.desc()).first()
+        if not cleaned_data or not cleaned_data.data_json:
+            return jsonify({'error': 'No data found for this upload'}), 404
+        
+        df = pd.read_json(io.StringIO(cleaned_data.data_json), orient='records')
+        
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        
+        log_audit('download_history', {'upload_id': upload_id, 'filename': upload.filename})
+        
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f"lyx_{upload.filename}"
+        )
+    except Exception as e:
+        return jsonify({'error': f'Download failed: {str(e)}'}), 500
+
+@app.route('/delete-history/<int:upload_id>', methods=['DELETE'])
+@login_required
+def delete_history(upload_id):
+    try:
+        upload = UploadHistory.query.filter_by(id=upload_id, user_id=current_user.id).first()
+        if not upload:
+            return jsonify({'error': 'File not found'}), 404
+        
+        CleanedData.query.filter_by(upload_id=upload_id).delete()
+        ProcessingJob.query.filter_by(upload_id=upload_id).delete()
+        db.session.delete(upload)
+        db.session.commit()
+        
+        log_audit('delete_history', {'upload_id': upload_id})
+        return jsonify({'success': True, 'message': 'Deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+
+@app.route('/clear-history', methods=['POST'])
+@login_required
+def clear_history():
+    try:
+        ProcessingJob.query.filter_by(user_id=current_user.id).delete()
+        CleanedData.query.filter_by(user_id=current_user.id).delete()
+        UploadHistory.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        log_audit('clear_history')
+        return jsonify({'success': True, 'message': 'History cleared successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to clear history: {str(e)}'}), 500
+
+@app.route('/detect-duplicates', methods=['GET'])
+@login_required
+def detect_duplicates():
+    df = app.config.get('CURRENT_DF')
+    if df is None:
+        return jsonify({'error': 'No data loaded'}), 400
+    
+    try:
+        dup_mask = df.duplicated(keep=False)
+        duplicate_count = dup_mask.sum()
+        duplicate_rows = df[dup_mask].head(10).to_dict('records')
+        
+        for row in duplicate_rows:
+            for key, value in row.items():
+                if pd.isna(value):
+                    row[key] = ''
+                elif isinstance(value, (datetime, pd.Timestamp)):
+                    row[key] = value.strftime('%Y-%m-%d %H:%M')
+                else:
+                    row[key] = str(value)
+        
+        log_audit('detect_duplicates', {'duplicate_count': int(duplicate_count)})
+        
+        return jsonify({
+            'success': True,
+            'duplicate_count': int(duplicate_count),
+            'duplicate_rows': duplicate_rows
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to detect duplicates: {str(e)}'}), 400
 
 @app.route('/cleaning-report', methods=['POST'])
 @login_required
@@ -1094,6 +1764,8 @@ def get_cleaning_report():
         
         report = DataCleaner.get_cleaning_report(df, selected_columns)
         report = json.loads(json.dumps(report, default=str))
+        
+        log_audit('generate_report', {'columns': selected_columns})
         return jsonify({'success': True, 'report': report})
     except Exception as e:
         return jsonify({'error': f'Failed to generate report: {str(e)}'}), 400
@@ -1126,6 +1798,22 @@ def clean_data():
         
         clean_log = json.loads(json.dumps(clean_log, default=str))
         
+        upload_id = app.config.get('CURRENT_UPLOAD_ID')
+        if upload_id:
+            job_id = save_processing_job(upload_id, 'cleaning', {
+                'columns': selected_columns,
+                'options': options
+            })
+            if job_id:
+                cleaned_id = save_cleaned_data(job_id, upload_id, formatted_df, clean_log.get('steps', []))
+                update_job_status(job_id, 'completed', clean_log)
+                
+                log_audit('clean_completed', {
+                    'job_id': job_id,
+                    'columns': selected_columns,
+                    'steps': clean_log.get('steps', [])
+                })
+        
         return jsonify({
             'success': True,
             'table_html': table_html,
@@ -1134,6 +1822,7 @@ def clean_data():
             'message': f"Data cleaned! {len(clean_log['steps'])} steps applied."
         })
     except Exception as e:
+        log_audit('clean_failed', {'error': str(e)})
         return jsonify({'error': f'Cleaning failed: {str(e)}'}), 400
 
 @app.route('/undo-cleaning', methods=['POST'])
@@ -1154,6 +1843,7 @@ def undo_cleaning():
             escape=False
         )
         
+        log_audit('undo_cleaning')
         return jsonify({
             'success': True,
             'table_html': table_html,
@@ -1162,8 +1852,6 @@ def undo_cleaning():
         })
     except Exception as e:
         return jsonify({'error': f'Undo failed: {str(e)}'}), 400
-
-# ===================== BULK UPDATE ROUTES =====================
 
 @app.route('/bulk-find', methods=['POST'])
 @login_required
@@ -1180,6 +1868,11 @@ def bulk_find():
         results = BulkUpdater.find_all_occurrences(df, search_term, case_sensitive)
         results = json.loads(json.dumps(results, default=str))
         total_matches = sum(r['count'] for r in results)
+        
+        log_audit('bulk_find', {
+            'search_term': search_term,
+            'matches': total_matches
+        })
         
         return jsonify({
             'success': True,
@@ -1228,6 +1921,13 @@ def bulk_replace():
         
         result = json.loads(json.dumps(result, default=str))
         
+        log_audit('bulk_replace', {
+            'column': search_col,
+            'search_term': search_term,
+            'replace_term': replace_term,
+            'affected_rows': result.get('affected_rows', 0)
+        })
+        
         return jsonify({
             'success': True,
             'table_html': table_html,
@@ -1236,39 +1936,6 @@ def bulk_replace():
         })
     except Exception as e:
         return jsonify({'error': f'Replace failed: {str(e)}'}), 400
-
-# ===================== DETECT DUPLICATES ROUTE =====================
-
-@app.route('/detect-duplicates', methods=['GET'])
-@login_required
-def detect_duplicates():
-    df = app.config.get('CURRENT_DF')
-    if df is None:
-        return jsonify({'error': 'No data loaded'}), 400
-    
-    try:
-        dup_mask = df.duplicated(keep=False)
-        duplicate_count = dup_mask.sum()
-        duplicate_rows = df[dup_mask].head(10).to_dict('records')
-        
-        for row in duplicate_rows:
-            for key, value in row.items():
-                if pd.isna(value):
-                    row[key] = ''
-                elif isinstance(value, (datetime, pd.Timestamp)):
-                    row[key] = value.strftime('%Y-%m-%d %H:%M')
-                else:
-                    row[key] = str(value)
-        
-        return jsonify({
-            'success': True,
-            'duplicate_count': int(duplicate_count),
-            'duplicate_rows': duplicate_rows
-        })
-    except Exception as e:
-        return jsonify({'error': f'Failed to detect duplicates: {str(e)}'}), 400
-
-# ===================== SEARCH ROUTE =====================
 
 @app.route('/search', methods=['POST'])
 @login_required
@@ -1299,8 +1966,6 @@ def search_data():
     except Exception as e:
         return jsonify({'error': f'Search failed: {str(e)}'}), 400
 
-# ===================== EDIT ROUTES =====================
-
 @app.route('/update-cell', methods=['POST'])
 @login_required
 def update_cell():
@@ -1316,6 +1981,7 @@ def update_cell():
     try:
         df.at[row, col] = value
         app.config['CURRENT_DF'] = df
+        log_audit('cell_update', {'row': row, 'col': col})
         return jsonify({'success': True, 'message': 'Cell updated successfully'})
     except Exception as e:
         return jsonify({'error': f'Update failed: {str(e)}'}), 400
@@ -1331,6 +1997,7 @@ def add_row():
         new_row = {col: '' for col in df.columns}
         new_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         app.config['CURRENT_DF'] = new_df
+        log_audit('add_row')
         return jsonify({'success': True, 'message': 'Row added successfully'})
     except Exception as e:
         return jsonify({'error': f'Failed to add row: {str(e)}'}), 400
@@ -1348,11 +2015,10 @@ def delete_row():
     try:
         df = df.drop(index=row_index).reset_index(drop=True)
         app.config['CURRENT_DF'] = df
+        log_audit('delete_row', {'row': row_index})
         return jsonify({'success': True, 'message': 'Row deleted successfully'})
     except Exception as e:
         return jsonify({'error': f'Failed to delete row: {str(e)}'}), 400
-
-# ===================== DOWNLOAD ROUTES =====================
 
 @app.route('/download/<format>')
 @login_required
@@ -1379,6 +2045,8 @@ def download(format):
                 else:
                     df_clean[col] = df_clean[col].dt.strftime('%Y-%m-%d')
         
+        log_audit('download', {'format': format})
+        
         if format == 'csv':
             output = io.StringIO()
             df_clean.to_csv(output, index=False, na_rep='')
@@ -1387,7 +2055,7 @@ def download(format):
                 io.BytesIO(output.getvalue().encode('utf-8-sig')),
                 mimetype='text/csv',
                 as_attachment=True,
-                download_name='formatted_data.csv'
+                download_name=f'lyx_formatted_data_{NAIROBI_NOW.strftime("%Y%m%d%H%M%S")}.csv'
             )
         
         elif format == 'excel':
@@ -1399,7 +2067,7 @@ def download(format):
                 output,
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 as_attachment=True,
-                download_name='formatted_data.xlsx'
+                download_name=f'lyx_formatted_data_{NAIROBI_NOW.strftime("%Y%m%d%H%M%S")}.xlsx'
             )
         
         return jsonify({'error': 'Invalid format'}), 400
@@ -1417,9 +2085,149 @@ def reset_data():
         formatted_df = DataFormatter.apply_all_formattings(original_df.copy())
         app.config['CURRENT_DF'] = formatted_df
         app.config['CLEANING_HISTORY'] = []
+        log_audit('reset_data')
         return jsonify({'success': True, 'message': 'Data reset to original'})
     except Exception as e:
         return jsonify({'error': f'Reset failed: {str(e)}'}), 400
+
+# ===================== SAVED DATA ROUTES =====================
+
+@app.route('/history-page', methods=['GET'])
+@login_required
+def history_page():
+    return render_template('history.html')
+
+@app.route('/save-final', methods=['POST'])
+@login_required
+def save_final_data():
+    df = app.config.get('CURRENT_DF')
+    if df is None:
+        return jsonify({'error': 'No data to save'}), 400
+    
+    try:
+        data = request.get_json() or {}
+        file_name = data.get('filename', f'lyx_formatted_data_{NAIROBI_NOW.strftime("%Y%m%d%H%M%S")}')
+        
+        saved_id = save_saved_data_to_db(df, file_name)
+        
+        if saved_id:
+            return jsonify({
+                'success': True,
+                'message': 'Data saved successfully!',
+                'saved_id': saved_id
+            })
+        else:
+            return jsonify({'error': 'Failed to save data'}), 500
+            
+    except Exception as e:
+        log_audit('save_failed', {'error': str(e)})
+        return jsonify({'error': f'Save failed: {str(e)}'}), 500
+
+@app.route('/saved-data', methods=['GET'])
+@login_required
+def get_saved_data():
+    user_id = current_user.id if current_user.is_authenticated else None
+    saved_data = get_saved_data_list(user_id)
+    return jsonify({'success': True, 'saved_data': saved_data})
+
+@app.route('/saved-data/load/<int:saved_id>', methods=['GET'])
+@login_required
+def load_saved_data(saved_id):
+    try:
+        saved_data = SavedCleanData.query.filter_by(id=saved_id, user_id=current_user.id).first()
+        if not saved_data:
+            return jsonify({'error': 'File not found or access denied'}), 404
+        
+        df = load_saved_data_from_db(saved_id)
+        if df is None:
+            return jsonify({'error': 'No data found'}), 404
+        
+        app.config['CURRENT_DF'] = df
+        app.config['CURRENT_ORIGINAL_DF'] = df.copy()
+        app.config['CLEANING_HISTORY'] = []
+        app.config['CURRENT_SAVED_ID'] = saved_id
+        
+        serializable_df = DataFormatter.convert_to_serializable(df)
+        column_info = DataFormatter.get_column_info(serializable_df)
+        
+        table_html = serializable_df.to_html(
+            classes='formatted-table',
+            index=False,
+            escape=False
+        )
+        
+        log_audit('load_saved_data', {'saved_id': saved_id, 'filename': saved_data.filename})
+        
+        return jsonify({
+            'success': True,
+            'table_html': table_html,
+            'columns': column_info,
+            'rows': int(len(serializable_df)),
+            'cols': int(len(serializable_df.columns)),
+            'filename': saved_data.filename,
+            'saved_id': saved_id
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to load file: {str(e)}'}), 500
+
+@app.route('/saved-data/download/<int:saved_id>')
+@login_required
+def download_saved_data(saved_id):
+    try:
+        saved_data = SavedCleanData.query.filter_by(id=saved_id, user_id=current_user.id).first()
+        if not saved_data:
+            return jsonify({'error': 'File not found or access denied'}), 404
+        
+        df = load_saved_data_from_db(saved_id)
+        if df is None:
+            return jsonify({'error': 'No data found'}), 404
+        
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        
+        log_audit('download_saved_data', {'saved_id': saved_id, 'filename': saved_data.filename})
+        
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f"lyx_{saved_data.filename}"
+        )
+    except Exception as e:
+        return jsonify({'error': f'Download failed: {str(e)}'}), 500
+
+@app.route('/saved-data/delete/<int:saved_id>', methods=['DELETE'])
+@login_required
+def delete_saved_data(saved_id):
+    try:
+        if delete_saved_data_from_db(saved_id, current_user.id):
+            log_audit('delete_saved_data', {'saved_id': saved_id})
+            return jsonify({'success': True, 'message': 'Deleted successfully'})
+        else:
+            return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+
+@app.route('/saved-data/clear', methods=['POST'])
+@login_required
+def clear_saved_data():
+    try:
+        if clear_saved_data_for_user(current_user.id):
+            log_audit('clear_saved_data')
+            return jsonify({'success': True, 'message': 'Saved data cleared successfully'})
+        else:
+            return jsonify({'error': 'Failed to clear saved data'}), 500
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Clear failed: {str(e)}'}), 500
+
+# ===================== CREATE TABLES =====================
+
+with app.app_context():
+    db.create_all()
+    print("Database tables created successfully!")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
+    <title>CSV Formatter · Saved Data</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, sans-serif;
+            min-height: 100vh;
+            padding: 24px;
+            background: #f0f4f8;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(0, 123, 255, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(0, 200, 200, 0.03) 0%, transparent 50%);
+            color: #1a202c;
+            line-height: 1.6;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 20px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 123, 255, 0.15);
+            border-radius: 20px;
+            border: 1px solid rgba(0, 123, 255, 0.05);
+            transition: background 0.3s;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 123, 255, 0.25);
+        }
+
+        .container {
+            max-width: 1320px;
+            margin: 0 auto;
+        }
+
+        /* Glass Morphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            border-radius: 32px;
+        }
+
+        .glass-dark {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Header */
+        .header {
+            padding: 24px 32px;
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 18px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #1a202c;
+        }
+
+        .header h1 i {
+            background: linear-gradient(135deg, #007bff, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: 10px;
+            font-size: 2rem;
+        }
+
+        .header h1 span {
+            background: linear-gradient(135deg, #007bff, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .actions {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        /* Buttons - Professional Blue Theme */
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 60px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            min-height: 52px;
+            min-width: 52px;
+            letter-spacing: 0.01em;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #1a202c;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #00b4d8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 6px 24px rgba(0, 123, 255, 0.15);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 40px rgba(0, 123, 255, 0.25);
+        }
+
+        .btn-outline {
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #1a202c;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.6);
+            transform: translateY(-3px);
+            border-color: rgba(0, 123, 255, 0.2);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 6px 24px rgba(40, 167, 69, 0.15);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(40, 167, 69, 0.25);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #e74c5e);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 6px 24px rgba(220, 53, 69, 0.12);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(220, 53, 69, 0.25);
+        }
+
+        .btn-sm {
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            min-height: 42px;
+            min-width: 42px;
+            border-radius: 40px;
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #1a202c;
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(0, 123, 255, 0.2);
+            color: #1a202c;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled, .btn.loading {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(0.3);
+        }
+
+        .btn .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Cards */
+        .card {
+            padding: 28px 30px;
+            margin-bottom: 28px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .card-header h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a202c;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .card-header h2 i {
+            color: #007bff;
+            font-size: 1.6rem;
+        }
+
+        .card-header .count {
+            color: rgba(26, 32, 44, 0.6);
+            font-size: 0.9rem;
+            background: rgba(255, 255, 255, 0.3);
+            padding: 6px 20px;
+            border-radius: 60px;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px 20px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 14px 24px;
+            border-radius: 80px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 28px;
+            backdrop-filter: blur(8px);
+        }
+
+        .filter-bar .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex: 1 1 140px;
+        }
+
+        .filter-bar label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: rgba(26, 32, 44, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+
+        .filter-bar input, .filter-bar select {
+            padding: 10px 20px;
+            border-radius: 60px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            background: rgba(255, 255, 255, 0.4);
+            color: #1a202c;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.25s;
+            min-height: 48px;
+            flex: 1;
+            min-width: 120px;
+            backdrop-filter: blur(4px);
+        }
+
+        .filter-bar input::placeholder {
+            color: rgba(26, 32, 44, 0.3);
+        }
+
+        .filter-bar input:focus, .filter-bar select:focus {
+            border-color: rgba(0, 123, 255, 0.3);
+            box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.05);
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .filter-bar select option {
+            background: white;
+            color: #1a202c;
+        }
+
+        .filter-bar .btn {
+            min-height: 48px;
+            padding: 10px 24px;
+            font-size: 0.85rem;
+        }
+
+        /* Table */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 24px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 4px;
+            scroll-behavior: smooth;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+            font-size: 0.95rem;
+        }
+
+        .history-table thead th {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px 20px;
+            text-align: left;
+            font-weight: 600;
+            color: rgba(26, 32, 44, 0.7);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            backdrop-filter: blur(12px);
+            border-radius: 16px 16px 0 0;
+            letter-spacing: 0.02em;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .history-table tbody tr {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .history-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(0, 123, 255, 0.08);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.02);
+            transform: scale(1.002);
+        }
+
+        .history-table tbody td {
+            padding: 18px 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.02);
+            color: #1a202c;
+            vertical-align: middle;
+        }
+
+        .history-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .history-table .status-badge {
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 60px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            background: rgba(40, 167, 69, 0.08);
+            color: #28a745;
+            border: 1px solid rgba(40, 167, 69, 0.08);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons .btn {
+            padding: 10px 18px;
+            font-size: 0.8rem;
+            min-height: 40px;
+            min-width: 40px;
+            border-radius: 40px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(26, 32, 44, 0.4);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            display: block;
+            margin-bottom: 16px;
+            color: rgba(0, 0, 0, 0.04);
+        }
+
+        .empty-state h3 {
+            color: #1a202c;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+            font-weight: 500;
+        }
+
+        .empty-state p {
+            color: rgba(26, 32, 44, 0.5);
+            margin-bottom: 20px;
+        }
+
+        .empty-state .btn {
+            min-height: 44px;
+            padding: 10px 24px;
+            font-size: 0.9rem;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 380px;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            padding: 16px 22px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.04);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            animation: toastSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.3s ease;
+            color: #1a202c;
+        }
+
+        .toast .toast-icon {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .toast.success .toast-icon {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+        }
+
+        .toast.error .toast-icon {
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+
+        .toast.info .toast-icon {
+            background: rgba(0, 123, 255, 0.1);
+            color: #007bff;
+        }
+
+        .toast .toast-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .toast .toast-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.01em;
+        }
+
+        .toast .toast-message {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(26, 32, 44, 0.2);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px 6px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            border-radius: 12px;
+        }
+
+        .toast .toast-close:hover {
+            color: rgba(26, 32, 44, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .toast.removing {
+            animation: toastSlideOut 0.3s ease forwards;
+        }
+
+        @keyframes toastSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(24px) scale(0.96);
+            }
+        }
+
+        /* Loader */
+        .table-loader {
+            text-align: center;
+            padding: 50px 0;
+        }
+        .table-loader .spinner-lg {
+            width: 52px;
+            height: 52px;
+            border: 4px solid rgba(0, 123, 255, 0.04);
+            border-top-color: #007bff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 18px;
+        }
+        .table-loader p {
+            color: rgba(26, 32, 44, 0.4);
+            font-size: 0.95rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { padding: 16px; }
+            .header { padding: 20px 18px; flex-direction: column; text-align: center; }
+            .header h1 { font-size: 1.6rem; }
+            .card { padding: 18px 14px; border-radius: 24px; }
+            .history-table { font-size: 0.78rem; }
+            .history-table th, .history-table td { padding: 12px 10px; }
+            .action-buttons .btn { font-size: 0.7rem; padding: 6px 12px; min-height: 34px; min-width: 34px; }
+            .filter-bar { flex-direction: column; align-items: stretch; border-radius: 28px; padding: 16px; gap: 12px; }
+            .filter-bar .filter-group { flex: 1 1 auto; }
+            .filter-bar input, .filter-bar select { min-height: 44px; }
+            .btn { padding: 10px 18px; min-height: 44px; font-size: 0.9rem; }
+            .btn-sm { padding: 8px 14px; min-height: 36px; font-size: 0.75rem; }
+            .toast-container { max-width: 90%; right: 12px; bottom: 16px; }
+        }
+
+        @media (max-width: 480px) {
+            .history-table { font-size: 0.7rem; }
+            .history-table th, .history-table td { padding: 8px 6px; }
+            .action-buttons { gap: 4px; }
+            .action-buttons .btn { font-size: 0.6rem; padding: 4px 8px; min-height: 28px; min-width: 28px; }
+            .card-header h2 { font-size: 1.1rem; }
+            .header h1 { font-size: 1.3rem; }
+            .empty-state .btn { min-height: 38px; padding: 8px 18px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container">
+        <div class="header glass">
+            <h1><i class="fas fa-save"></i> <span>Saved Data</span></h1>
+            <div class="actions">
+                <a href="/dashboard" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Formatter</a>
+                <button class="btn btn-danger" id="clearAllBtn" onclick="clearAllSavedData()"><i class="fas fa-trash-alt"></i> Clear All</button>
+            </div>
+        </div>
+
+        <div class="card glass">
+            <div class="card-header">
+                <h2><i class="fas fa-file-alt"></i> Saved Files</h2>
+                <span class="count" id="fileCount">Loading...</span>
+            </div>
+
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label for="searchInput"><i class="fas fa-search"></i></label>
+                    <input type="text" id="searchInput" placeholder="Search filename..." style="min-width:140px;">
+                </div>
+                <div class="filter-group">
+                    <label for="sortSelect"><i class="fas fa-sort"></i></label>
+                    <select id="sortSelect">
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="rows">Most rows</option>
+                        <option value="cols">Most cols</option>
+                    </select>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="resetFiltersBtn"><i class="fas fa-undo-alt"></i> Reset</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="history-table" id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Rows</th>
+                            <th>Cols</th>
+                            <th>Saved On</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <!-- dynamic -->
+                    </tbody>
+                </table>
+                <div id="tableLoader" class="table-loader" style="display:none;">
+                    <div class="spinner-lg"></div>
+                    <p>Loading saved data…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ----- TOAST SYSTEM -----
+        function showToast(message, type = 'info', title = '') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+            
+            const titles = {
+                success: 'Success',
+                error: 'Error',
+                warning: 'Warning',
+                info: 'Information'
+            };
+            
+            const finalTitle = title || titles[type] || 'Information';
+            
+            toast.innerHTML = `
+                <div class="toast-icon"><i class="${icons[type] || icons.info}"></i></div>
+                <div class="toast-body">
+                    <div class="toast-title">${finalTitle}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.closest('.toast').remove()"><i class="fas fa-times"></i></button>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.classList.add('removing');
+                    setTimeout(() => {
+                        if (toast.parentNode) toast.remove();
+                    }, 300);
+                }
+            }, 4500);
+            
+            toast.addEventListener('click', (e) => {
+                if (e.target.closest('.toast-close')) return;
+                toast.classList.add('removing');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.remove();
+                }, 300);
+            });
+        }
+
+        // ----- STATE -----
+        let savedItems = [];
+        let filteredItems = [];
+        let isLoading = false;
+
+        function showTableLoader(show) {
+            const loader = document.getElementById('tableLoader');
+            const tbody = document.getElementById('historyBody');
+            if (show) {
+                loader.style.display = 'block';
+                tbody.innerHTML = '';
+            } else {
+                loader.style.display = 'none';
+            }
+        }
+
+        function setButtonLoading(btn, loading) {
+            if (!btn) return;
+            if (loading) {
+                btn.disabled = true;
+                btn.classList.add('loading');
+                btn._origText = btn.innerHTML;
+                btn.innerHTML = `<span class="spinner"></span> Loading...`;
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                if (btn._origText) btn.innerHTML = btn._origText;
+            }
+        }
+
+        // ----- LOAD SAVED DATA -----
+        async function loadSavedData() {
+            if (isLoading) return;
+            isLoading = true;
+            showTableLoader(true);
+            const countEl = document.getElementById('fileCount');
+            try {
+                const response = await fetch('/saved-data', { 
+                    method: 'GET', 
+                    headers: { 'Content-Type': 'application/json' } 
+                });
+                const data = await response.json();
+                if (data.success && data.saved_data && data.saved_data.length > 0) {
+                    savedItems = data.saved_data;
+                    applyFiltersAndRender();
+                } else {
+                    renderEmptyState();
+                    countEl.textContent = '0 files';
+                }
+            } catch (error) {
+                document.getElementById('historyBody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:#dc3545;"><i class="fas fa-exclamation-circle"></i> Failed to load: ${error.message}</td></tr>`;
+                countEl.textContent = 'Error';
+            } finally {
+                isLoading = false;
+                showTableLoader(false);
+            }
+        }
+
+        function renderEmptyState() {
+            const tbody = document.getElementById('historyBody');
+            tbody.innerHTML = `
+                <tr><td colspan="6" style="text-align:center;padding:30px 20px;">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h3>No saved files yet</h3>
+                        <p>Upload your data and click "Save to History" to see it here</p>
+                        <a href="/dashboard" class="btn btn-primary" style="min-height:18px; padding:6px 14px; font-size:0.9rem; text-align:center;">
+                            Go to Formatter
+                        </a>
+                    </div>
+                </td></tr>
+            `;
+            document.getElementById('fileCount').textContent = '0 files';
+        }
+
+        function renderTable(items) {
+            const tbody = document.getElementById('historyBody');
+            const countEl = document.getElementById('fileCount');
+            if (!items || items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:rgba(26,32,44,0.4);"><i class="fas fa-search" style="font-size:2.5rem;display:block;margin-bottom:12px;"></i>No matches</td></tr>`;
+                countEl.textContent = '0 files';
+                return;
+            }
+            let html = '';
+            items.forEach((item) => {
+                const date = new Date(item.created_at);
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+                html += `
+                    <tr data-id="${item.id}">
+                        <td><strong style="color:#1a202c;">${escapeHtml(item.filename)}</strong></td>
+                        <td>${item.row_count || '-'}</td>
+                        <td>${item.column_count || '-'}</td>
+                        <td style="font-size:0.8rem;color:rgba(26,32,44,0.5);">${formattedDate}</td>
+                        <td><span class="status-badge saved">${item.status || 'Saved'}</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-success btn-sm" data-action="download-csv" data-id="${item.id}"><i class="fas fa-download"></i> CSV</button>
+                                <button class="btn btn-success btn-sm" data-action="download-excel" data-id="${item.id}"><i class="fas fa-file-excel"></i> Excel</button>
+                                <button class="btn btn-primary btn-sm" data-action="load" data-id="${item.id}"><i class="fas fa-arrow-right"></i> Load</button>
+                                <button class="btn btn-danger btn-sm" data-action="delete" data-id="${item.id}"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            countEl.textContent = `${items.length} files`;
+
+            tbody.querySelectorAll('[data-action]').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    const action = this.dataset.action;
+                    const id = parseInt(this.dataset.id);
+                    if (action === 'download-csv') downloadSavedData(id, this);
+                    else if (action === 'download-excel') downloadSavedDataExcel(id, this);
+                    else if (action === 'load') loadSavedDataToFormatter(id, this);
+                    else if (action === 'delete') deleteSavedData(id, this);
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"]/g, function(m) {
+                if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; if (m === '"') return '&quot;';
+                return m;
+            });
+        }
+
+        // ----- FILTER & SORT -----
+        function applyFiltersAndRender() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const sortType = document.getElementById('sortSelect').value;
+
+            let filtered = [...savedItems];
+            if (searchTerm) filtered = filtered.filter(item => item.filename.toLowerCase().includes(searchTerm));
+            
+            filtered.sort((a, b) => {
+                switch(sortType) {
+                    case 'newest': return new Date(b.created_at) - new Date(a.created_at);
+                    case 'oldest': return new Date(a.created_at) - new Date(b.created_at);
+                    case 'rows': return (b.row_count || 0) - (a.row_count || 0);
+                    case 'cols': return (b.column_count || 0) - (a.column_count || 0);
+                    default: return 0;
+                }
+            });
+            filteredItems = filtered;
+            renderTable(filtered);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('searchInput').addEventListener('input', applyFiltersAndRender);
+            document.getElementById('sortSelect').addEventListener('change', applyFiltersAndRender);
+            document.getElementById('resetFiltersBtn').addEventListener('click', function() {
+                document.getElementById('searchInput').value = '';
+                document.getElementById('sortSelect').value = 'newest';
+                applyFiltersAndRender();
+                showToast('Filters reset', 'info');
+            });
+        });
+
+        // ----- ACTIONS -----
+        async function downloadSavedData(savedId, btn) {
+            if (!btn) btn = document.querySelector(`[data-action="download-csv"][data-id="${savedId}"]`);
+            setButtonLoading(btn, true);
+            try {
+                const response = await fetch(`/saved-data/download/${savedId}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `lyxcsv_saved_data_${savedId}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    showToast('File downloaded successfully!', 'success');
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Download failed', 'error');
+                }
+            } catch (error) {
+                showToast('Download failed: ' + error.message, 'error');
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+
+        async function downloadSavedDataExcel(savedId, btn) {
+            if (!btn) btn = document.querySelector(`[data-action="download-excel"][data-id="${savedId}"]`);
+            setButtonLoading(btn, true);
+            try {
+                const response = await fetch(`/saved-data/download/${savedId}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `lyxcsv_saved_data_${savedId}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    showToast('File downloaded as Excel!', 'success');
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Download failed', 'error');
+                }
+            } catch (error) {
+                showToast('Download failed: ' + error.message, 'error');
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+
+        async function loadSavedDataToFormatter(savedId, btn) {
+            if (!btn) btn = document.querySelector(`[data-action="load"][data-id="${savedId}"]`);
+            setButtonLoading(btn, true);
+            try {
+                const response = await fetch(`/saved-data/load/${savedId}`);
+                const data = await response.json();
+                if (data.success) {
+                    showToast(`Loaded "${data.filename}" successfully!`, 'success');
+                    window.location.href = '/dashboard';
+                } else {
+                    showToast(data.error || 'Failed to load', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to load: ' + error.message, 'error');
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+
+        async function deleteSavedData(savedId, btn) {
+            if (!confirm('Delete this saved file?')) return;
+            if (!btn) btn = document.querySelector(`[data-action="delete"][data-id="${savedId}"]`);
+            setButtonLoading(btn, true);
+            try {
+                const response = await fetch(`/saved-data/delete/${savedId}`, { 
+                    method: 'DELETE', 
+                    headers: { 'Content-Type': 'application/json' } 
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('File deleted successfully!', 'success');
+                    savedItems = savedItems.filter(item => item.id !== savedId);
+                    applyFiltersAndRender();
+                } else {
+                    showToast(data.error || 'Delete failed', 'error');
+                }
+            } catch (error) {
+                showToast('Delete failed: ' + error.message, 'error');
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+
+        async function clearAllSavedData() {
+            if (!confirm('Clear ALL saved data? This cannot be undone.')) return;
+            const clearBtn = document.getElementById('clearAllBtn');
+            setButtonLoading(clearBtn, true);
+            try {
+                const response = await fetch('/saved-data/clear', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' } 
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('All saved data cleared!', 'success');
+                    savedItems = [];
+                    applyFiltersAndRender();
+                } else {
+                    showToast(data.error || 'Failed to clear', 'error');
+                }
+            } catch (error) {
+                showToast('Failed: ' + error.message, 'error');
+            } finally {
+                setButtonLoading(clearBtn, false);
+            }
+        }
+
+        // ----- INIT -----
+        loadSavedData();
+    </script>
+</body>
+</html>
