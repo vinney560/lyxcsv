@@ -1,4 +1,7 @@
-from flask import Flask, render_template, request, send_file, jsonify, session, redirect
+from flask import (
+    Flask, render_template, request, send_file, jsonify, session,\
+      redirect, stream_with_context, Response
+)
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -49,6 +52,7 @@ class User(UserMixin, db.Model):
     uploads = db.relationship('UploadHistory', backref='user', lazy=True)
     processing_jobs = db.relationship('ProcessingJob', backref='user', lazy=True)
     saved_data = db.relationship('SavedCleanData', backref='user', lazy=True)
+    active_session = db.relationship('ActiveSessionData', backref='user', lazy=True, uselist=False)
     
     def to_dict(self):
         return {
@@ -194,6 +198,25 @@ class AuditLog(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
+class ActiveSessionData(db.Model):
+    __tablename__ = 'active_session_data'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    current_df_json = db.Column(db.Text)
+    original_df_json = db.Column(db.Text)
+    cleaning_history_json = db.Column(db.Text)
+    current_upload_id = db.Column(db.Integer)
+    last_updated = db.Column(db.DateTime, default=lambda: NAIROBI_NOW, onupdate=lambda: NAIROBI_NOW)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'current_upload_id': self.current_upload_id,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None
+        }
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -256,7 +279,7 @@ def save_upload_record(filename, file_size, file_type, headers, rows, cols):
     try:
         upload = UploadHistory(
             id=gen_unique_id(UploadHistory),
-            user_id=current_user.id if current_user.is_authenticated else None,
+            user_id=current_user.id,
             filename=filename,
             file_size=file_size,
             file_type=file_type,
@@ -277,7 +300,7 @@ def save_processing_job(upload_id, job_type, job_details=None):
     try:
         job = ProcessingJob(
             id=gen_unique_id(ProcessingJob),
-            user_id=current_user.id if current_user.is_authenticated else None,
+            user_id=current_user.id,
             upload_id=upload_id,
             job_type=job_type,
             job_details=json.dumps(job_details) if job_details else None,
@@ -315,7 +338,7 @@ def save_cleaned_data(job_id, upload_id, df, cleaning_steps=None):
         
         cleaned = CleanedData(
             id=gen_unique_id(CleanedData),
-            user_id=current_user.id if current_user.is_authenticated else None,
+            user_id=current_user.id,
             upload_id=upload_id,
             job_id=job_id,
             data_json=data_json,
@@ -345,12 +368,11 @@ def get_cleaned_data(cleaned_id):
 
 def get_user_history_with_data(user_id=None):
     try:
-        if user_id:
-            uploads = UploadHistory.query.filter_by(user_id=user_id).order_by(UploadHistory.uploaded_at.desc()).limit(50).all()
-        else:
-            session_id = get_or_create_session_id()
-            uploads = UploadHistory.query.filter_by(session_id=session_id).order_by(UploadHistory.uploaded_at.desc()).limit(50).all()
+        if user_id is None or user_id != current_user.id:
+            return []
         
+        uploads = UploadHistory.query.filter_by(user_id=user_id).order_by(UploadHistory.uploaded_at.desc()).limit(50).all()
+
         history = []
         for upload in uploads:
             upload_dict = upload.to_dict()
@@ -438,17 +460,140 @@ def delete_saved_data_from_db(saved_id, user_id):
 
 def clear_saved_data_for_user(user_id):
     try:
-        if user_id:
-            SavedCleanData.query.filter_by(user_id=user_id).delete()
-        else:
-            session_id = get_or_create_session_id()
-            SavedCleanData.query.filter_by(session_id=session_id).delete()
+        if not user_id:
+            return False
+        SavedCleanData.query.filter_by(user_id=user_id).delete()
         db.session.commit()
         return True
     except Exception as e:
         print(f"Failed to clear saved data: {e}")
         db.session.rollback()
     return False
+
+# ===================== ACTIVE SESSION DATA HELPERS =====================
+
+def get_active_session_data():
+    """Get or create active session data for current user"""
+    try:
+        if not current_user.is_authenticated:
+            return None
+        
+        active_session = ActiveSessionData.query.filter_by(user_id=current_user.id).first()
+        if not active_session:
+            active_session = ActiveSessionData(
+                id=gen_unique_id(ActiveSessionData),
+                user_id=current_user.id
+            )
+            db.session.add(active_session)
+            db.session.commit()
+        return active_session
+    except Exception as e:
+        print(f"Failed to get active session data: {e}")
+        db.session.rollback()
+        return None
+
+def save_current_df_to_db(df):
+    """Save current dataframe to database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session and df is not None:
+            active_session.current_df_json = df.to_json(orient='records', date_format='iso')
+            db.session.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to save current df to db: {e}")
+        db.session.rollback()
+    return False
+
+def get_current_df_from_db():
+    """Get current dataframe from database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session and active_session.current_df_json:
+            df = pd.read_json(io.StringIO(active_session.current_df_json), orient='records')
+            return df
+    except Exception as e:
+        print(f"Failed to get current df from db: {e}")
+    return None
+
+def save_original_df_to_db(df):
+    """Save original dataframe to database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session and df is not None:
+            active_session.original_df_json = df.to_json(orient='records', date_format='iso')
+            db.session.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to save original df to db: {e}")
+        db.session.rollback()
+    return False
+
+def get_original_df_from_db():
+    """Get original dataframe from database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session and active_session.original_df_json:
+            df = pd.read_json(io.StringIO(active_session.original_df_json), orient='records')
+            return df
+    except Exception as e:
+        print(f"Failed to get original df from db: {e}")
+    return None
+
+def save_cleaning_history_to_db(history):
+    """Save cleaning history to database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session:
+            # Convert DataFrames to JSON strings
+            history_json = []
+            for df in history:
+                history_json.append(df.to_json(orient='records', date_format='iso'))
+            active_session.cleaning_history_json = json.dumps(history_json)
+            db.session.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to save cleaning history to db: {e}")
+        db.session.rollback()
+    return False
+
+def get_cleaning_history_from_db():
+    """Get cleaning history from database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session and active_session.cleaning_history_json:
+            history_json = json.loads(active_session.cleaning_history_json)
+            history = []
+            for df_json in history_json:
+                df = pd.read_json(io.StringIO(df_json), orient='records')
+                history.append(df)
+            return history
+    except Exception as e:
+        print(f"Failed to get cleaning history from db: {e}")
+    return []
+
+def save_current_upload_id_to_db(upload_id):
+    """Save current upload ID to database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session:
+            active_session.current_upload_id = upload_id
+            db.session.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to save current upload id to db: {e}")
+        db.session.rollback()
+    return False
+
+def get_current_upload_id_from_db():
+    """Get current upload ID from database"""
+    try:
+        active_session = get_active_session_data()
+        if active_session:
+            return active_session.current_upload_id
+    except Exception as e:
+        print(f"Failed to get current upload id from db: {e}")
+    return None
 
 # ===================== EMAIL FORMATTER =====================
 
@@ -1419,11 +1564,62 @@ def process_file(file):
                 
         elif filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(file, engine='openpyxl')
+        elif filename.endswith(('.txt', '.text')):
+            # Read plain text file
+            encodings = ['utf-8', 'latin1', 'cp1252']
+            text_content = None
+            for encoding in encodings:
+                try:
+                    file.seek(0)
+                    text_content = file.read().decode(encoding)
+                    break
+                except:
+                    continue
+            
+            if text_content is None:
+                raise ValueError("Could not decode text file")
+            
+            # Split into lines and create a DataFrame
+            lines = text_content.splitlines()
+            # Remove empty lines
+            lines = [line.strip() for line in lines if line.strip()]
+            
+            if not lines:
+                raise ValueError("Text file is empty")
+            
+            # Try to detect if it's delimited (comma, tab, semicolon, pipe)
+            first_line = lines[0]
+            delimiter = None
+            
+            if ',' in first_line:
+                delimiter = ','
+            elif '\t' in first_line:
+                delimiter = '\t'
+            elif ';' in first_line:
+                delimiter = ';'
+            elif '|' in first_line:
+                delimiter = '|'
+            
+            if delimiter and len(lines) > 1:
+                # Check if first line might be headers
+                first_line_parts = len(first_line.split(delimiter))
+                second_line_parts = len(lines[1].split(delimiter)) if len(lines) > 1 else 0
+                
+                if first_line_parts == second_line_parts:
+                    # It's a delimited text file, parse as CSV
+                    from io import StringIO
+                    df = pd.read_csv(StringIO(text_content), delimiter=delimiter, encoding=encoding)
+                else:
+                    # Treat as single column
+                    df = pd.DataFrame({'Text': lines})
+            else:
+                # Single column DataFrame
+                df = pd.DataFrame({'Text': lines})
         else:
             raise ValueError("Unsupported file format")
         
-        app.config['CURRENT_ORIGINAL_DF'] = df.copy()
-        app.config['CLEANING_HISTORY'] = []
+        save_original_df_to_db(df.copy())
+        save_cleaning_history_to_db([])
         
         formatted_df = DataFormatter.apply_all_formattings(df)
         
@@ -1436,7 +1632,7 @@ def process_file(file):
                 rows=len(df),
                 cols=len(df.columns)
             )
-            app.config['CURRENT_UPLOAD_ID'] = upload_id
+            save_current_upload_id_to_db(upload_id)
         except Exception as e:
             print(f"Failed to save upload to database: {e}")
         
@@ -1567,11 +1763,58 @@ def logout():
     logout_user()
     return jsonify({'success': True, 'message': 'Logged out successfully'})
 
+@app.route('/txt-input')
+@login_required
+def txt_input():
+    return render_template("get_text_file.html")
+
+@app.route('/txt-file', methods=['POST'])
+def txt_file():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        text = data.get('text', '').strip()
+        
+        if not text:
+            return jsonify({'error': 'Text is empty'}), 400
+        
+        filename = data.get('filename', 'download.txt')
+        if not filename.endswith('.txt'):
+            filename += '.txt'
+        
+        if data.get('add_timestamp', False):
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            name, ext = filename.rsplit('.', 1)
+            filename = f"{name}_{timestamp}.{ext}"
+        
+        def generate():
+            chunk_size = 8192
+            text_bytes = text.encode('utf-8')
+            
+            for i in range(0, len(text_bytes), chunk_size):
+                yield text_bytes[i:i+chunk_size]
+        
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/plain',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'text/plain; charset=utf-8'
+            }
+        )
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload_file():
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
+
     
     file = request.files['file']
     if file.filename == '':
@@ -1592,7 +1835,7 @@ def upload_file():
         escape=False
     )
     
-    app.config['CURRENT_DF'] = formatted_df
+    save_current_df_to_db(formatted_df)
     
     log_audit('upload_success', {
         'filename': file.filename,
@@ -1630,10 +1873,10 @@ def load_history(upload_id):
         
         df = pd.read_json(io.StringIO(cleaned_data.data_json), orient='records')
         
-        app.config['CURRENT_DF'] = df
-        app.config['CURRENT_ORIGINAL_DF'] = df.copy()
-        app.config['CLEANING_HISTORY'] = []
-        app.config['CURRENT_UPLOAD_ID'] = upload_id
+        save_current_df_to_db(df)
+        save_original_df_to_db(df.copy())
+        save_cleaning_history_to_db([])
+        save_current_upload_id_to_db(upload_id)
         
         serializable_df = DataFormatter.convert_to_serializable(df)
         column_info = DataFormatter.get_column_info(serializable_df)
@@ -1723,7 +1966,7 @@ def clear_history():
 @app.route('/detect-duplicates', methods=['GET'])
 @login_required
 def detect_duplicates():
-    df = app.config.get('CURRENT_DF')
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
@@ -1754,7 +1997,7 @@ def detect_duplicates():
 @app.route('/cleaning-report', methods=['POST'])
 @login_required
 def get_cleaning_report():
-    df = app.config.get('CURRENT_DF')
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
@@ -1773,7 +2016,8 @@ def get_cleaning_report():
 @app.route('/clean-data', methods=['POST'])
 @login_required
 def clean_data():
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
@@ -1782,12 +2026,16 @@ def clean_data():
         options = data.get('options', {})
         selected_columns = data.get('columns', None)
         
-        app.config['CLEANING_HISTORY'].append(df.copy())
+        # Get cleaning history from database
+        cleaning_history = get_cleaning_history_from_db()
+        cleaning_history.append(df.copy())
+        save_cleaning_history_to_db(cleaning_history)
         
         cleaned_df, clean_log = DataCleaner.apply_all_cleaning(df, options, selected_columns)
         
         formatted_df = DataFormatter.apply_all_formattings(cleaned_df)
-        app.config['CURRENT_DF'] = formatted_df
+        # Save to database instead of app.config
+        save_current_df_to_db(formatted_df)
         
         serializable_df = DataFormatter.convert_to_serializable(formatted_df)
         table_html = serializable_df.to_html(
@@ -1798,7 +2046,8 @@ def clean_data():
         
         clean_log = json.loads(json.dumps(clean_log, default=str))
         
-        upload_id = app.config.get('CURRENT_UPLOAD_ID')
+        # Get from database instead of app.config
+        upload_id = get_current_upload_id_from_db()
         if upload_id:
             job_id = save_processing_job(upload_id, 'cleaning', {
                 'columns': selected_columns,
@@ -1828,13 +2077,18 @@ def clean_data():
 @app.route('/undo-cleaning', methods=['POST'])
 @login_required
 def undo_cleaning():
-    if not app.config.get('CLEANING_HISTORY'):
+    # Get from database instead of app.config
+    cleaning_history = get_cleaning_history_from_db()
+    if not cleaning_history:
         return jsonify({'error': 'Nothing to undo'}), 400
     
     try:
-        df = app.config['CLEANING_HISTORY'].pop()
+        df = cleaning_history.pop()
+        save_cleaning_history_to_db(cleaning_history)
+        
         formatted_df = DataFormatter.apply_all_formattings(df)
-        app.config['CURRENT_DF'] = formatted_df
+        # Save to database instead of app.config
+        save_current_df_to_db(formatted_df)
         
         serializable_df = DataFormatter.convert_to_serializable(formatted_df)
         table_html = serializable_df.to_html(
@@ -1860,7 +2114,8 @@ def bulk_find():
     search_term = data.get('search_term', '')
     case_sensitive = data.get('case_sensitive', False)
     
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
@@ -1893,12 +2148,16 @@ def bulk_replace():
     case_sensitive = data.get('case_sensitive', False)
     single_row = data.get('single_row', None)
     
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
     try:
-        app.config['CLEANING_HISTORY'].append(df.copy())
+        # Get cleaning history from database
+        cleaning_history = get_cleaning_history_from_db()
+        cleaning_history.append(df.copy())
+        save_cleaning_history_to_db(cleaning_history)
         
         updated_df, result = BulkUpdater.find_and_replace(
             df, search_col, search_term, replace_term, case_sensitive, single_row
@@ -1907,10 +2166,12 @@ def bulk_replace():
         if 'error' in result:
             return jsonify({'error': result['error']}), 400
         
-        app.config['CURRENT_DF'] = updated_df
+        # Save to database instead of app.config
+        save_current_df_to_db(updated_df)
         
         formatted_df = DataFormatter.apply_all_formattings(updated_df)
-        app.config['CURRENT_DF'] = formatted_df
+        # Save to database instead of app.config
+        save_current_df_to_db(formatted_df)
         
         serializable_df = DataFormatter.convert_to_serializable(formatted_df)
         table_html = serializable_df.to_html(
@@ -1944,7 +2205,8 @@ def search_data():
     search_term = data.get('search', '')
     case_sensitive = data.get('case_sensitive', False)
     
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
@@ -1974,13 +2236,15 @@ def update_cell():
     col = data.get('col')
     value = data.get('value')
     
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
     try:
         df.at[row, col] = value
-        app.config['CURRENT_DF'] = df
+        # Save to database instead of app.config
+        save_current_df_to_db(df)
         log_audit('cell_update', {'row': row, 'col': col})
         return jsonify({'success': True, 'message': 'Cell updated successfully'})
     except Exception as e:
@@ -1989,14 +2253,16 @@ def update_cell():
 @app.route('/add-row', methods=['POST'])
 @login_required
 def add_row():
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
     try:
         new_row = {col: '' for col in df.columns}
         new_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        app.config['CURRENT_DF'] = new_df
+        # Save to database instead of app.config
+        save_current_df_to_db(new_df)
         log_audit('add_row')
         return jsonify({'success': True, 'message': 'Row added successfully'})
     except Exception as e:
@@ -2008,13 +2274,15 @@ def delete_row():
     data = request.get_json()
     row_index = data.get('row')
     
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
     try:
         df = df.drop(index=row_index).reset_index(drop=True)
-        app.config['CURRENT_DF'] = df
+        # Save to database instead of app.config
+        save_current_df_to_db(df)
         log_audit('delete_row', {'row': row_index})
         return jsonify({'success': True, 'message': 'Row deleted successfully'})
     except Exception as e:
@@ -2023,7 +2291,8 @@ def delete_row():
 @app.route('/download/<format>')
 @login_required
 def download(format):
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data to download'}), 400
     
@@ -2077,14 +2346,16 @@ def download(format):
 @app.route('/reset', methods=['POST'])
 @login_required
 def reset_data():
-    original_df = app.config.get('CURRENT_ORIGINAL_DF')
+    # Get from database instead of app.config
+    original_df = get_original_df_from_db()
     if original_df is None:
         return jsonify({'error': 'No original data to reset to'}), 400
     
     try:
         formatted_df = DataFormatter.apply_all_formattings(original_df.copy())
-        app.config['CURRENT_DF'] = formatted_df
-        app.config['CLEANING_HISTORY'] = []
+        # Save to database instead of app.config
+        save_current_df_to_db(formatted_df)
+        save_cleaning_history_to_db([])
         log_audit('reset_data')
         return jsonify({'success': True, 'message': 'Data reset to original'})
     except Exception as e:
@@ -2100,7 +2371,8 @@ def history_page():
 @app.route('/save-final', methods=['POST'])
 @login_required
 def save_final_data():
-    df = app.config.get('CURRENT_DF')
+    # Get from database instead of app.config
+    df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data to save'}), 400
     
@@ -2126,7 +2398,7 @@ def save_final_data():
 @app.route('/saved-data', methods=['GET'])
 @login_required
 def get_saved_data():
-    user_id = current_user.id if current_user.is_authenticated else None
+    user_id = current_user.id
     saved_data = get_saved_data_list(user_id)
     return jsonify({'success': True, 'saved_data': saved_data})
 
@@ -2142,10 +2414,10 @@ def load_saved_data(saved_id):
         if df is None:
             return jsonify({'error': 'No data found'}), 404
         
-        app.config['CURRENT_DF'] = df
-        app.config['CURRENT_ORIGINAL_DF'] = df.copy()
-        app.config['CLEANING_HISTORY'] = []
-        app.config['CURRENT_SAVED_ID'] = saved_id
+        # Save to database instead of app.config
+        save_current_df_to_db(df)
+        save_original_df_to_db(df.copy())
+        save_cleaning_history_to_db([])
         
         serializable_df = DataFormatter.convert_to_serializable(df)
         column_info = DataFormatter.get_column_info(serializable_df)
