@@ -15,7 +15,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://your-website.com/csv-excel-update-tool" />
     
-    <!-- Twitter Card (optional but recommended) -->
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="CSV/Excel Update Tool - Bulk Data Management" />
     <meta name="twitter:description" content="Easily update and manage your CSV and Excel files. Bulk edit, import, export, and synchronize spreadsheet data." />
@@ -419,7 +419,6 @@
             color: #38a169;
         }
 
-        /* ===== UPLOAD SECTION ===== */
         .upload-section {
             position: relative;
         }
@@ -543,7 +542,6 @@
             transition: all 0.25s ease;
         }
 
-        /* ===== BUTTONS ===== */
         .btn {
             padding: 10px 22px;
             border: none;
@@ -726,7 +724,6 @@
             font-weight: 600;
         }
 
-        /* ===== COLLAPSIBLE ===== */
         .collapsible-header {
             cursor: pointer;
             user-select: none;
@@ -762,7 +759,6 @@
             opacity: 0;
         }
 
-        /* ===== TOOLBAR ===== */
         .toolbar {
             display: none;
             margin: 16px 0;
@@ -846,7 +842,6 @@
             accent-color: #4a6cf7;
         }
 
-        /* ===== HISTORY SECTION ===== */
         .history-section {
             display: none;
             margin: 16px 0;
@@ -875,7 +870,6 @@
             background: #ebf8ff !important;
         }
 
-        /* ===== CLEANING SECTION ===== */
         .cleaning-section {
             display: none;
             margin: 12px 0;
@@ -965,7 +959,6 @@
             background: #dbeafe;
         }
 
-        /* ===== ISSUE CARDS ===== */
         .issue-cards-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1110,7 +1103,6 @@
             color: #1e40af;
         }
 
-        /* ===== CLEANING REPORT ===== */
         .cleaning-report {
             display: none;
             margin-top: 14px;
@@ -1191,7 +1183,6 @@
             color: #2d3748;
         }
 
-        /* ===== BULK SECTION ===== */
         .bulk-section {
             display: none;
             margin: 12px 0;
@@ -1374,7 +1365,6 @@
             color: #38a169;
         }
 
-        /* ===== COLUMN INFO ===== */
         .column-info {
             display: none;
             margin: 14px 0;
@@ -1413,7 +1403,6 @@
             color: #1a202c;
         }
 
-        /* ===== EDIT CONTROLS ===== */
         .edit-controls {
             display: none;
             margin: 10px 0;
@@ -1451,7 +1440,6 @@
             color: #4a6cf7;
         }
 
-        /* ===== TABLE ===== */
         .table-wrapper {
             display: none;
             overflow-x: auto;
@@ -1558,7 +1546,6 @@
             transform: scale(1.05);
         }
 
-        /* ===== DOWNLOAD SECTION ===== */
         .download-section {
             display: none;
             gap: 12px;
@@ -1571,7 +1558,6 @@
             display: flex;
         }
 
-        /* ===== LOADER ===== */
         .loader {
             display: none;
             text-align: center;
@@ -1598,7 +1584,6 @@
             font-size: 0.95rem;
         }
 
-        /* ===== CLEAN LOG ===== */
         .clean-log {
             display: none;
             margin-top: 12px;
@@ -1626,7 +1611,6 @@
             margin-bottom: 3px;
         }
 
-        /* ===== HISTORY TABLE ===== */
         .history-table {
             width: 100%;
             border-collapse: collapse;
@@ -1691,7 +1675,6 @@
             color: #065f46;
         }
 
-        /* ===== SCROLLBAR ===== */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -2410,7 +2393,6 @@
 
         // ===== AUTH FUNCTIONS =====
         function checkAuth() {
-            // Check if user is already authenticated via session
             fetch('/api/check-auth', {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }

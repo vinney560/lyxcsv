@@ -41,7 +41,6 @@
             line-height: 1.6;
         }
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -65,7 +64,6 @@
             margin: 0 auto;
         }
 
-        /* Glass Morphism */
         .glass {
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(20px);
@@ -82,7 +80,6 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* Header */
         .header {
             padding: 24px 32px;
             margin-bottom: 28px;
@@ -122,7 +119,6 @@
             flex-wrap: wrap;
         }
 
-        /* Buttons - Professional Blue Theme */
         .btn {
             padding: 12px 28px;
             border: none;
@@ -234,7 +230,6 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Cards */
         .card {
             padding: 28px 30px;
             margin-bottom: 28px;
@@ -274,7 +269,6 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* Filter Bar */
         .filter-bar {
             display: flex;
             flex-wrap: wrap;
@@ -341,7 +335,6 @@
             font-size: 0.85rem;
         }
 
-        /* Table */
         .table-wrapper {
             overflow-x: auto;
             border-radius: 24px;
@@ -427,7 +420,6 @@
             border-radius: 40px;
         }
 
-        /* Empty State */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -459,7 +451,6 @@
             font-size: 0.9rem;
         }
 
-        /* Toast */
         .toast-container {
             position: fixed;
             bottom: 30px;
@@ -578,7 +569,6 @@
             }
         }
 
-        /* Loader */
         .table-loader {
             text-align: center;
             padding: 50px 0;
@@ -597,7 +587,6 @@
             font-size: 0.95rem;
         }
 
-        /* Responsive */
         @media (max-width: 768px) {
             body { padding: 16px; }
             .header { padding: 20px 18px; flex-direction: column; text-align: center; }
@@ -685,7 +674,6 @@
     </div>
 
     <script>
-        // ----- TOAST SYSTEM -----
         function showToast(message, type = 'info', title = '') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -1018,7 +1006,6 @@
             }
         }
 
-        // ----- INIT -----
         loadSavedData();
     </script>
 </body>

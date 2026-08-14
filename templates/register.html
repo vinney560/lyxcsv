@@ -14,7 +14,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://your-website.com/csv-excel-update-tool" />
     
-    <!-- Twitter Card (optional but recommended) -->
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="CSV/Excel Update Tool - Bulk Data Management" />
     <meta name="twitter:description" content="Easily update and manage your CSV and Excel files. Bulk edit, import, export, and synchronize spreadsheet data." />
@@ -361,7 +361,6 @@
             text-decoration: underline;
         }
 
-        /* ===== SERVER ERROR BANNER ===== */
         .server-error {
             background: rgba(229, 62, 62, 0.08);
             border: 1px solid rgba(229, 62, 62, 0.2);
@@ -402,7 +401,6 @@
             }
         }
 
-        /* ===== MODERN TOAST ===== */
         .toast-container {
             position: fixed;
             top: 30px;
@@ -523,7 +521,6 @@
             }
         }
 
-        /* Responsive */
         @media (max-width: 480px) {
             .register-card {
                 padding: 32px 24px;
@@ -569,7 +566,6 @@
         </div>
 
         <form id="registerForm" novalidate>
-            <!-- Server Error Display -->
             <div class="server-error" id="serverError">
                 <i class="fas fa-exclamation-circle"></i>
                 <span class="error-text" id="serverErrorMessage">All fields are required</span>
@@ -980,7 +976,6 @@
                 return;
             }
 
-            // Prepare form data matching Flask backend expectations
             const formData = {
                 username: username.value.trim(),
                 email: email.value.trim() || '',
@@ -1031,7 +1026,6 @@
             }
         });
 
-        // ===== INITIAL HINTS =====
         usernameHint.innerHTML = `<i class="fas fa-info-circle"></i> 3-20 chars, letters, underscores & spaces only`;
         emailHint.innerHTML = `<i class="fas fa-info-circle"></i> Must be @gmail.com or @yahoo.com (optional)`;
         passwordHint.innerHTML = `<i class="fas fa-info-circle"></i> 6-14 characters`;

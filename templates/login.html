@@ -14,7 +14,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://your-website.com/csv-excel-update-tool" />
     
-    <!-- Twitter Card (optional but recommended) -->
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="CSV/Excel Update Tool - Bulk Data Management" />
     <meta name="twitter:description" content="Easily update and manage your CSV and Excel files. Bulk edit, import, export, and synchronize spreadsheet data." />
@@ -365,7 +365,6 @@
             text-decoration: underline;
         }
 
-        /* ===== SERVER ERROR BANNER ===== */
         .server-error {
             background: rgba(229, 62, 62, 0.08);
             border: 1px solid rgba(229, 62, 62, 0.2);
@@ -421,7 +420,6 @@
             }
         }
 
-        /* ===== MODERN TOAST ===== */
         .toast-container {
             position: fixed;
             top: 30px;
@@ -542,7 +540,6 @@
             }
         }
 
-        /* Responsive */
         @media (max-width: 480px) {
             .login-card {
                 padding: 32px 24px;
@@ -664,7 +661,6 @@
     </div>
 
     <script>
-        // ===== TOAST SYSTEM =====
         function showToast(message, type = 'info', title = '') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -713,7 +709,6 @@
             });
         }
 
-        // ===== SERVER ERROR HANDLING =====
         function showServerError(message) {
             const errorDiv = document.getElementById('serverError');
             const errorMsg = document.getElementById('serverErrorMessage');
@@ -732,7 +727,6 @@
             clearTimeout(window._serverErrorTimeout);
         }
 
-        // ===== DOM REFS =====
         const form = document.getElementById('loginForm');
         const username = document.getElementById('username');
         const password = document.getElementById('password');
@@ -745,7 +739,6 @@
         const usernameHint = document.getElementById('usernameHint');
         const passwordHint = document.getElementById('passwordHint');
 
-        // ===== TOGGLE PASSWORD VISIBILITY =====
         document.getElementById('togglePassword').addEventListener('click', function() {
             const type = password.type === 'password' ? 'text' : 'password';
             password.type = type;
@@ -753,7 +746,6 @@
             this.querySelector('i').classList.toggle('fa-eye-slash');
         });
 
-        // ===== REAL-TIME VALIDATION =====
         function validateField(input, wrapper, hint, errorMsg, successMsg) {
             const value = input.value.trim();
             
@@ -843,12 +835,10 @@
 
                 if (response.ok) {
                     showToast(data.message || 'Login successful!', 'success', 'Welcome Back!');
-                    // Redirect or handle successful login
                     setTimeout(() => {
                         window.location.href = data.redirect || '/dashboard';
                     }, 1000);
                 } else {
-                    // Display the server error message
                     const errorMsg = data.message || data.error || 'Invalid username or password.';
                     showServerError(errorMsg);
                     showToast(errorMsg, 'error', 'Login Failed');

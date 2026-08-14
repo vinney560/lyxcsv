@@ -2016,7 +2016,10 @@ def get_cleaning_report():
 @app.route('/clean-data', methods=['POST'])
 @login_required
 def clean_data():
-    # Get from database instead of app.config
+    """Apply data cleaning operations to the current dataset.
+    Retrieves current data from database, applies requested cleaning steps,
+    saves the modified data back, and logs the operation for auditing.
+    """
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
@@ -2026,7 +2029,7 @@ def clean_data():
         options = data.get('options', {})
         selected_columns = data.get('columns', None)
         
-        # Get cleaning history from database
+        # Preserve current state for undo functionality
         cleaning_history = get_cleaning_history_from_db()
         cleaning_history.append(df.copy())
         save_cleaning_history_to_db(cleaning_history)
@@ -2034,7 +2037,6 @@ def clean_data():
         cleaned_df, clean_log = DataCleaner.apply_all_cleaning(df, options, selected_columns)
         
         formatted_df = DataFormatter.apply_all_formattings(cleaned_df)
-        # Save to database instead of app.config
         save_current_df_to_db(formatted_df)
         
         serializable_df = DataFormatter.convert_to_serializable(formatted_df)
@@ -2046,7 +2048,6 @@ def clean_data():
         
         clean_log = json.loads(json.dumps(clean_log, default=str))
         
-        # Get from database instead of app.config
         upload_id = get_current_upload_id_from_db()
         if upload_id:
             job_id = save_processing_job(upload_id, 'cleaning', {
@@ -2077,7 +2078,10 @@ def clean_data():
 @app.route('/undo-cleaning', methods=['POST'])
 @login_required
 def undo_cleaning():
-    # Get from database instead of app.config
+    """Undo the most recent data cleaning operation.
+    Reverts the dataset to its previous state from the cleaning history,
+    updates the current data in the database, and logs the action.
+    """
     cleaning_history = get_cleaning_history_from_db()
     if not cleaning_history:
         return jsonify({'error': 'Nothing to undo'}), 400
@@ -2087,7 +2091,6 @@ def undo_cleaning():
         save_cleaning_history_to_db(cleaning_history)
         
         formatted_df = DataFormatter.apply_all_formattings(df)
-        # Save to database instead of app.config
         save_current_df_to_db(formatted_df)
         
         serializable_df = DataFormatter.convert_to_serializable(formatted_df)
@@ -2110,11 +2113,14 @@ def undo_cleaning():
 @app.route('/bulk-find', methods=['POST'])
 @login_required
 def bulk_find():
+    """Search for all occurrences of a term across the dataset.
+    Finds matches in all columns, returns detailed results including
+    which columns contain matches and how many occurrences exist.
+    """
     data = request.get_json()
     search_term = data.get('search_term', '')
     case_sensitive = data.get('case_sensitive', False)
     
-    # Get from database instead of app.config
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
@@ -2141,6 +2147,10 @@ def bulk_find():
 @app.route('/bulk-replace', methods=['POST'])
 @login_required
 def bulk_replace():
+    """Find and replace text across multiple cells in the dataset.
+    Can replace all occurrences or a single match, preserves history for undo,
+    and logs the operation for audit purposes.
+    """
     data = request.get_json()
     search_col = data.get('column')
     search_term = data.get('search_term', '')
@@ -2148,13 +2158,12 @@ def bulk_replace():
     case_sensitive = data.get('case_sensitive', False)
     single_row = data.get('single_row', None)
     
-    # Get from database instead of app.config
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
     try:
-        # Get cleaning history from database
+        # Preserve current state for undo functionality
         cleaning_history = get_cleaning_history_from_db()
         cleaning_history.append(df.copy())
         save_cleaning_history_to_db(cleaning_history)
@@ -2166,11 +2175,9 @@ def bulk_replace():
         if 'error' in result:
             return jsonify({'error': result['error']}), 400
         
-        # Save to database instead of app.config
         save_current_df_to_db(updated_df)
         
         formatted_df = DataFormatter.apply_all_formattings(updated_df)
-        # Save to database instead of app.config
         save_current_df_to_db(formatted_df)
         
         serializable_df = DataFormatter.convert_to_serializable(formatted_df)
@@ -2201,11 +2208,14 @@ def bulk_replace():
 @app.route('/search', methods=['POST'])
 @login_required
 def search_data():
+    """Search the entire dataset for a specific term.
+    Returns filtered results matching the search query, with optional
+    case-sensitive matching, formatted as HTML table for display.
+    """
     data = request.get_json()
     search_term = data.get('search', '')
     case_sensitive = data.get('case_sensitive', False)
     
-    # Get from database instead of app.config
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
@@ -2231,19 +2241,21 @@ def search_data():
 @app.route('/update-cell', methods=['POST'])
 @login_required
 def update_cell():
+    """Update a single cell's value in the dataset.
+    Modifies the specified row and column with the new value,
+    persists changes to the database, and logs the edit.
+    """
     data = request.get_json()
     row = data.get('row')
     col = data.get('col')
     value = data.get('value')
     
-    # Get from database instead of app.config
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
     try:
         df.at[row, col] = value
-        # Save to database instead of app.config
         save_current_df_to_db(df)
         log_audit('cell_update', {'row': row, 'col': col})
         return jsonify({'success': True, 'message': 'Cell updated successfully'})
@@ -2253,7 +2265,10 @@ def update_cell():
 @app.route('/add-row', methods=['POST'])
 @login_required
 def add_row():
-    # Get from database instead of app.config
+    """Append a new empty row to the end of the dataset.
+    Creates a row with empty values for all columns, adds it to the dataframe,
+    saves the updated data to the database, and logs the action.
+    """
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
@@ -2261,7 +2276,6 @@ def add_row():
     try:
         new_row = {col: '' for col in df.columns}
         new_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        # Save to database instead of app.config
         save_current_df_to_db(new_df)
         log_audit('add_row')
         return jsonify({'success': True, 'message': 'Row added successfully'})
@@ -2271,17 +2285,19 @@ def add_row():
 @app.route('/delete-row', methods=['POST'])
 @login_required
 def delete_row():
+    """Remove a specific row from the dataset.
+    Deletes the row at the specified index, resets the dataframe index,
+    persists the changes to the database, and logs the deletion.
+    """
     data = request.get_json()
     row_index = data.get('row')
     
-    # Get from database instead of app.config
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data loaded'}), 400
     
     try:
         df = df.drop(index=row_index).reset_index(drop=True)
-        # Save to database instead of app.config
         save_current_df_to_db(df)
         log_audit('delete_row', {'row': row_index})
         return jsonify({'success': True, 'message': 'Row deleted successfully'})
@@ -2291,7 +2307,10 @@ def delete_row():
 @app.route('/download/<format>')
 @login_required
 def download(format):
-    # Get from database instead of app.config
+    """Export the current dataset in the requested format.
+    Supports CSV and Excel exports. Processes dates to proper string formats,
+    cleans up null values, and sends the file as an attachment for download.
+    """
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data to download'}), 400
@@ -2346,14 +2365,16 @@ def download(format):
 @app.route('/reset', methods=['POST'])
 @login_required
 def reset_data():
-    # Get from database instead of app.config
+    """Reset the entire dataset back to its original uploaded state.
+    Reverts all changes, cleaning operations, and edits by restoring the
+    original dataframe from the database. Clears the undo history.
+    """
     original_df = get_original_df_from_db()
     if original_df is None:
         return jsonify({'error': 'No original data to reset to'}), 400
     
     try:
         formatted_df = DataFormatter.apply_all_formattings(original_df.copy())
-        # Save to database instead of app.config
         save_current_df_to_db(formatted_df)
         save_cleaning_history_to_db([])
         log_audit('reset_data')
@@ -2371,7 +2392,10 @@ def history_page():
 @app.route('/save-final', methods=['POST'])
 @login_required
 def save_final_data():
-    # Get from database instead of app.config
+    """Save the current processed dataset as a finalized entry.
+    Archives the current dataframe in the database with a user-provided filename,
+    creates a permanent saved record that can be accessed later from the history.
+    """
     df = get_current_df_from_db()
     if df is None:
         return jsonify({'error': 'No data to save'}), 400
@@ -2405,6 +2429,11 @@ def get_saved_data():
 @app.route('/saved-data/load/<int:saved_id>', methods=['GET'])
 @login_required
 def load_saved_data(saved_id):
+    """Load a previously saved dataset from the archive.
+    Retrieves a saved dataset by its ID, verifies user ownership,
+    sets it as the current active dataset in the database, and prepares
+    it for viewing and editing in the application.
+    """
     try:
         saved_data = SavedCleanData.query.filter_by(id=saved_id, user_id=current_user.id).first()
         if not saved_data:
@@ -2414,7 +2443,6 @@ def load_saved_data(saved_id):
         if df is None:
             return jsonify({'error': 'No data found'}), 404
         
-        # Save to database instead of app.config
         save_current_df_to_db(df)
         save_original_df_to_db(df.copy())
         save_cleaning_history_to_db([])
